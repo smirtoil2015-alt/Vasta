@@ -3,6 +3,7 @@ import "./globals.css";
 import "./white-theme.css";
 import VastaPhonePicker from "@/components/vasta-phone-picker";
 import VastaGoogleLogin from "@/components/vasta-google-login";
+import VastaPinLogin from "@/components/vasta-pin-login";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default function RootLayout({
         {children}
         <VastaPhonePicker />
         <VastaGoogleLogin />
+        <VastaPinLogin />
       </body>
     </html>
   );

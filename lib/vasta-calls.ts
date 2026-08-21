@@ -1,5 +1,5 @@
 import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, addDoc, where, type Unsubscribe } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 
 export type VastaCallKind = "audio" | "video";
 export type VastaCall = {
@@ -16,6 +16,18 @@ export type VastaCall = {
 export async function createCall(conversationId: string, callerId: string, calleeId: string, kind: VastaCallKind, offer: RTCSessionDescriptionInit) {
   const ref = doc(collection(db, "conversations", conversationId, "calls"));
   await setDoc(ref, { callerId, calleeId, kind, status: "ringing", offer, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    if (token) {
+      await fetch("/api/notifications/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ conversationId, callId: ref.id, kind }),
+      });
+    }
+  } catch (error) {
+    console.warn("Vasta call push notification failed", error);
+  }
   return ref.id;
 }
 

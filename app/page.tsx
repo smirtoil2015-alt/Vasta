@@ -25,7 +25,7 @@ type Feature = {
 
 const features: Feature[] = [
   { icon: "⚡", title: "Vasta Pulse", text: "مراسلة لحظية مصممة للسرعة والوضوح." },
-  { icon: "🧠", title: "Vasta AI", text: "مساعد داخل المحادثة بدل فتح تطبيق آخر." },
+  { icon: "🧠", title: "Vasta", text: "المساعد الذكي داخل المحادثة، دون مغادرة التطبيق." },
   { icon: "✨", title: "Vasta Spaces", text: "مجموعات ومساحات أوسع من مجرد دردشة جماعية." },
   { icon: "🔒", title: "Vasta Privacy", text: "قواعد وصول قوية من الخادم قبل أي ميزات إضافية." },
 ];
@@ -142,7 +142,7 @@ export default function Home() {
           )}
 
           {error && <div className="error-box">{error}</div>}
-          <div className="auth-benefits"><span>⚡ لحظي</span><span>🧠 ذكي</span><span>🔒 خاص</span></div>
+          <div className="auth-benefits"><span>⚡ لحظي</span><span>🧠 Vasta ذكي</span><span>🔒 خاص</span></div>
           <p className="auth-note">قد تطبق شركة الاتصالات رسوم SMS. رقم الهاتف يستخدم لتسجيل الدخول والتحقق من الحساب.</p>
 
           <div className="feature-strip">
@@ -164,7 +164,7 @@ export default function Home() {
         <aside className="sidebar">
           <header className="sidebar-head"><div><div className="brand">Vasta</div><div className="brand-subtitle">مستقبلك في المراسلة</div></div><button className="icon-button">⋮</button></header>
           <div className="search-wrap"><span>⌕</span><input placeholder="البحث عن محادثة أو جهة اتصال" /></div>
-          <div className="feature-card"><div className="feature-icon">✦</div><div><strong>Vasta AI</strong><span>مساعد ذكي داخل المحادثة — قريبًا.</span></div><span className="soon-badge">SOON</span></div>
+          <div className="feature-card"><div className="feature-icon">✦</div><div><strong>Vasta</strong><span>المساعد الذكي داخل المحادثة — قريبًا.</span></div><span className="soon-badge">SOON</span></div>
           <div className="chat-list">
             <div className="empty-chats">
               <div className="welcome-logo">V</div>

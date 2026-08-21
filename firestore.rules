@@ -25,13 +25,15 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
+    // Private 1-to-1 conversations: exactly two participants, immutable after creation.
     match /conversations/{conversationId} {
       allow read: if isParticipant(conversationId);
       allow create: if signedIn()
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants.size() == 2;
       allow update: if isParticipant(conversationId)
-        && request.auth.uid in request.resource.data.participants;
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.participants.size() == 2;
       allow delete: if false;
 
       match /messages/{messageId} {

@@ -15,54 +15,17 @@ import {
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 
-export type VastaProfile = {
-  uid: string;
-  phoneNumber: string;
-  displayName: string;
-  photoURL: string;
-  bio: string;
-  updatedAt: unknown;
-};
+export type VastaProfile = { uid: string; phoneNumber: string; displayName: string; photoURL: string; bio: string; updatedAt: unknown };
+export type VastaConversation = { id: string; participants: string[]; names: Record<string, string>; lastMessage: string; lastMessageAt: number };
+export type VastaMessage = { id: string; text: string; senderId: string; createdAt: number; mediaUrl?: string; mediaType?: string; fileName?: string; fileSize?: number };
 
-export type VastaConversation = {
-  id: string;
-  participants: string[];
-  names: Record<string, string>;
-  lastMessage: string;
-  lastMessageAt: number;
-};
-
-export type VastaMessage = {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: number;
-};
-
-export function normalizePhone(phone: string) {
-  return phone.replace(/[^+\d]/g, "");
-}
-
-export function phoneIndexId(phone: string) {
-  return encodeURIComponent(normalizePhone(phone));
-}
-
-export function conversationIdFor(a: string, b: string) {
-  return [a, b].sort().join("__");
-}
+export function normalizePhone(phone: string) { return phone.replace(/[^+\d]/g, ""); }
+export function phoneIndexId(phone: string) { return encodeURIComponent(normalizePhone(phone)); }
+export function conversationIdFor(a: string, b: string) { return [a, b].sort().join("__"); }
 
 export async function ensureProfile(user: User): Promise<VastaProfile> {
-  const ref = doc(db, "users", user.uid);
-  const snapshot = await getDoc(ref);
-  const existing = snapshot.exists() ? (snapshot.data() as VastaProfile) : null;
-  const profile: VastaProfile = existing ?? {
-    uid: user.uid,
-    phoneNumber: normalizePhone(user.phoneNumber ?? ""),
-    displayName: "مستخدم Vasta",
-    photoURL: user.photoURL ?? "",
-    bio: "متاح على Vasta",
-    updatedAt: serverTimestamp(),
-  };
+  const ref = doc(db, "users", user.uid); const snapshot = await getDoc(ref); const existing = snapshot.exists() ? (snapshot.data() as VastaProfile) : null;
+  const profile: VastaProfile = existing ?? { uid: user.uid, phoneNumber: normalizePhone(user.phoneNumber ?? ""), displayName: "مستخدم Vasta", photoURL: user.photoURL ?? "", bio: "متاح على Vasta", updatedAt: serverTimestamp() };
   if (!snapshot.exists()) await setDoc(ref, profile);
   const phoneNumber = normalizePhone(user.phoneNumber ?? profile.phoneNumber);
   if (phoneNumber) await setDoc(doc(db, "phoneIndex", phoneIndexId(phoneNumber)), { uid: user.uid, displayName: profile.displayName });
@@ -73,62 +36,19 @@ export function watchConversations(uid: string, onChange: (items: VastaConversat
   const q = query(collection(db, "conversations"), where("participants", "array-contains", uid), orderBy("lastMessageAt", "desc"));
   return onSnapshot(q, (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<VastaConversation, "id">) }))), (error) => onError?.(error));
 }
-
 export function watchMessages(conversationId: string, onChange: (items: VastaMessage[]) => void, onError?: (error: Error) => void): Unsubscribe {
   const q = query(collection(db, "conversations", conversationId, "messages"), orderBy("createdAt", "asc"));
   return onSnapshot(q, (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<VastaMessage, "id">) }))), (error) => onError?.(error));
 }
-
 export function watchTyping(conversationId: string, onChange: (uid: string | null) => void, currentUid: string): Unsubscribe {
-  return onSnapshot(collection(db, "conversations", conversationId, "typing"), (snapshot) => {
-    const active = snapshot.docs
-      .map((item) => ({ uid: item.id, ...(item.data() as { active?: boolean; updatedAt?: { seconds?: number } }) }))
-      .find((item) => item.uid !== currentUid && item.active);
-    onChange(active?.uid ?? null);
-  });
+  return onSnapshot(collection(db, "conversations", conversationId, "typing"), (snapshot) => { const active = snapshot.docs.map((item) => ({ uid: item.id, ...(item.data() as { active?: boolean }) })).find((item) => item.uid !== currentUid && item.active); onChange(active?.uid ?? null); });
 }
-
 export function watchReadReceipts(conversationId: string, messageId: string, onChange: (uids: string[]) => void): Unsubscribe {
   return onSnapshot(collection(db, "conversations", conversationId, "messages", messageId, "receipts"), (snapshot) => onChange(snapshot.docs.map((item) => item.id)));
 }
-
-export async function setTyping(conversationId: string, uid: string, active: boolean) {
-  const ref = doc(db, "conversations", conversationId, "typing", uid);
-  if (!active) return deleteDoc(ref);
-  return setDoc(ref, { active: true, updatedAt: serverTimestamp() });
-}
-
-export async function markMessageRead(conversationId: string, messageId: string, uid: string) {
-  return setDoc(doc(db, "conversations", conversationId, "messages", messageId, "receipts", uid), { readAt: serverTimestamp() }, { merge: true });
-}
-
-export async function findProfileByPhone(phone: string): Promise<VastaProfile | null> {
-  const normalized = normalizePhone(phone);
-  if (!normalized) return null;
-  const indexSnapshot = await getDoc(doc(db, "phoneIndex", phoneIndexId(normalized)));
-  if (!indexSnapshot.exists()) return null;
-  const { uid } = indexSnapshot.data() as { uid: string };
-  const profileSnapshot = await getDoc(doc(db, "users", uid));
-  return profileSnapshot.exists() ? (profileSnapshot.data() as VastaProfile) : null;
-}
-
-export async function openConversation(current: VastaProfile, other: VastaProfile) {
-  if (current.uid === other.uid) return null;
-  const id = conversationIdFor(current.uid, other.uid);
-  const payload: Omit<VastaConversation, "id"> = {
-    participants: [current.uid, other.uid],
-    names: { [current.uid]: current.displayName, [other.uid]: other.displayName },
-    lastMessage: "ابدأ المحادثة ✨",
-    lastMessageAt: Date.now(),
-  };
-  await setDoc(doc(db, "conversations", id), payload, { merge: true });
-  return { id, ...payload };
-}
-
-export async function sendTextMessage(conversationId: string, sender: VastaProfile, text: string) {
-  const value = text.trim();
-  if (!value) return;
-  const now = Date.now();
-  await addDoc(collection(db, "conversations", conversationId, "messages"), { text: value, senderId: sender.uid, createdAt: now });
-  await setDoc(doc(db, "conversations", conversationId), { lastMessage: value, lastMessageAt: now }, { merge: true });
-}
+export async function setTyping(conversationId: string, uid: string, active: boolean) { const ref = doc(db, "conversations", conversationId, "typing", uid); return active ? setDoc(ref, { active: true, updatedAt: serverTimestamp() }) : deleteDoc(ref); }
+export async function markMessageRead(conversationId: string, messageId: string, uid: string) { return setDoc(doc(db, "conversations", conversationId, "messages", messageId, "receipts", uid), { readAt: serverTimestamp() }, { merge: true }); }
+export async function findProfileByPhone(phone: string): Promise<VastaProfile | null> { const normalized = normalizePhone(phone); if (!normalized) return null; const indexSnapshot = await getDoc(doc(db, "phoneIndex", phoneIndexId(normalized))); if (!indexSnapshot.exists()) return null; const { uid } = indexSnapshot.data() as { uid: string }; const profileSnapshot = await getDoc(doc(db, "users", uid)); return profileSnapshot.exists() ? (profileSnapshot.data() as VastaProfile) : null; }
+export async function openConversation(current: VastaProfile, other: VastaProfile) { if (current.uid === other.uid) return null; const id = conversationIdFor(current.uid, other.uid); const payload: Omit<VastaConversation, "id"> = { participants: [current.uid, other.uid], names: { [current.uid]: current.displayName, [other.uid]: other.displayName }, lastMessage: "ابدأ المحادثة ✨", lastMessageAt: Date.now() }; await setDoc(doc(db, "conversations", id), payload, { merge: true }); return { id, ...payload }; }
+export async function sendTextMessage(conversationId: string, sender: VastaProfile, text: string) { const value = text.trim(); if (!value) return; const now = Date.now(); await addDoc(collection(db, "conversations", conversationId, "messages"), { text: value, senderId: sender.uid, createdAt: now, type: "text" }); await setDoc(doc(db, "conversations", conversationId), { lastMessage: value, lastMessageAt: now }, { merge: true }); }
+export async function sendMediaMessage(conversationId: string, sender: VastaProfile, media: { url: string; mimeType: string; fileName: string; size: number }) { const now = Date.now(); await addDoc(collection(db, "conversations", conversationId, "messages"), { text: "", senderId: sender.uid, createdAt: now, type: "media", mediaUrl: media.url, mediaType: media.mimeType, fileName: media.fileName, fileSize: media.size }); await setDoc(doc(db, "conversations", conversationId), { lastMessage: media.mimeType.startsWith("image/") ? "📷 صورة" : media.mimeType.startsWith("video/") ? "🎬 فيديو" : `📎 ${media.fileName}`, lastMessageAt: now }, { merge: true }); }

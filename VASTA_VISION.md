@@ -4,15 +4,12 @@ Vasta is being built as a next-generation internet messenger, not as a visual co
 
 ## Core promise
 
-**Fast. Private. Intelligent. Personal.**
+**Fast. Private. Personal.**
 
 ## Differentiators
 
 ### Vasta Pulse
 Real-time conversation experience with typing, delivery/read states, presence, reactions, replies, and fast media handling.
-
-### Vasta Intelligence
-The intelligence layer inside Vasta. Users can ask Vasta to summarize a long thread, translate a message, rewrite a reply, extract tasks, and answer questions about shared content without leaving the conversation.
 
 ### Vasta Spaces
 A richer model for communities: private groups, announcement spaces, topic-based rooms, roles, moderation, and discoverable content when the user chooses.
@@ -24,7 +21,7 @@ A private area for important media and files, with organized search and controll
 Cross-device continuity with a responsive web foundation first, followed by installable mobile experiences.
 
 ### Vasta Privacy
-Least-privilege Firestore rules, protected media paths, abuse controls, and a design that can support end-to-end encryption for suitable message types as the architecture matures.
+Least-privilege Firestore rules, protected media paths, abuse controls, and a design that can support stronger end-to-end protections as the architecture matures.
 
 ## Product stages
 
@@ -33,12 +30,12 @@ Least-privilege Firestore rules, protected media paths, abuse controls, and a de
 3. Media, replies, reactions, read receipts, typing, presence, notifications.
 4. Groups, roles, channels/spaces, search, moderation.
 5. Voice/video calling and multi-device improvements.
-6. Vasta intelligence features and smart media/file workflows.
+6. Advanced smart features only if we decide to add them later.
 7. Security hardening, performance, observability, app-store-ready mobile clients.
 
-## Naming rule
+## Product rule
 
-The public product name is **Vasta**. The built-in assistant is also presented as **Vasta** when the context is clear, or as **Vasta، المساعد الذكي** when a label is needed. We do not expose a separate public brand such as “Vasta AI”.
+The public product name is **Vasta**. The current product is focused on messaging and does not include an AI assistant.
 
 ## Non-negotiables
 

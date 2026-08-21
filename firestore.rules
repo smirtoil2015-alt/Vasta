@@ -8,6 +8,10 @@ service cloud.firestore {
       return signedIn()
         && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
+    function isGroupMember(groupId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+    }
 
     match /users/{uid} {
       allow read, create, update: if isSelf(uid);
@@ -63,6 +67,29 @@ service cloud.firestore {
         allow read: if isParticipant(conversationId);
         allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
         allow delete: if isParticipant(conversationId) && uid == request.auth.uid;
+      }
+    }
+
+    match /groups/{groupId} {
+      allow read: if isGroupMember(groupId);
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() >= 2
+        && request.resource.data.memberIds.size() <= 100;
+      allow update: if isGroupMember(groupId)
+        && resource.data.ownerId == request.auth.uid;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isGroupMember(groupId);
+        allow create: if isGroupMember(groupId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 10000;
+        allow update, delete: if isGroupMember(groupId)
+          && resource.data.senderId == request.auth.uid;
       }
     }
   }

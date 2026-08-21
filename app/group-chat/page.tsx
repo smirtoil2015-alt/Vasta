@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, limit, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -9,7 +9,9 @@ import { uploadGroupMedia } from "@/lib/vasta-media";
 
 type Message = { id: string; senderId: string; text: string; createdAt: number; kind?: "text" | "media"; mediaKind?: "image" | "video" | "file"; mediaUrl?: string; fileName?: string; sizeBytes?: number };
 export default function GroupChatPage() {
-  const groupId=useMemo(()=>new URLSearchParams(window.location.search).get("id")??"",[]); const [userId,setUserId]=useState(""); const [name,setName]=useState("المجموعة"); const [members,setMembers]=useState(0); const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [mediaOpen,setMediaOpen]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+  const [groupId, setGroupId] = useState("");
+  const [userId,setUserId]=useState(""); const [name,setName]=useState("المجموعة"); const [members,setMembers]=useState(0); const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [mediaOpen,setMediaOpen]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+  useEffect(() => { setGroupId(new URLSearchParams(window.location.search).get("id") ?? ""); }, []);
   useEffect(()=>onAuthStateChanged(auth,u=>setUserId(u?.uid??"")),[]);
   useEffect(()=>{if(!groupId)return;let stop=()=>{};void getDoc(doc(db,"groups",groupId)).then(s=>{const d=s.data();if(d){setName((d.name as string)||"المجموعة");setMembers(Array.isArray(d.memberIds)?d.memberIds.length:0);}});stop=onSnapshot(query(collection(db,"groups",groupId,"messages"),orderBy("createdAt","asc"),limit(200)),s=>setMessages(s.docs.map(d=>({id:d.id,...(d.data() as Omit<Message,"id">)}))),()=>setError("تعذر تحديث رسائل المجموعة."));return()=>stop();},[groupId]);
   async function send(){const value=text.trim();if(!value||!userId||!groupId)return;setText("");setError("");try{await addDoc(collection(db,"groups",groupId,"messages"),{kind:"text",senderId:userId,text:value.slice(0,10000),createdAt:Date.now()});await updateDoc(doc(db,"groups",groupId),{updatedAt:Date.now()});}catch{setError("تعذر إرسال الرسالة.");}}

@@ -24,6 +24,7 @@ import {
 import { uploadVoiceBlob, chooseVoiceMimeType } from "@/lib/vasta-voice";
 import VastaMediaPicker, { type VastaMediaSelection } from "@/components/vasta-media-picker";
 import { uploadPrivateMedia } from "@/lib/vasta-media";
+import VastaCallActions from "@/lib/vasta-call-actions";
 
 function formatTime(value: number) { return new Date(value).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" }); }
 function duration(ms: number) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`; }
@@ -134,9 +135,10 @@ export default function PrivateChat() {
   }
 
   if (!user) return <main style={{ padding: 40, fontFamily: "sans-serif" }}>سجّل الدخول أولًا إلى Vasta.</main>;
+  const peerId = conversation?.participants.find((id) => id !== profile?.uid) ?? "";
   return <main dir="rtl" style={{ minHeight: "100vh", background: "#071316", color: "#e7f3f1", padding: 24, fontFamily: "sans-serif" }}>
     <div style={{ maxWidth: 980, margin: "0 auto", background: "#0d1d21", border: "1px solid #17353a", borderRadius: 24, overflow: "hidden" }}>
-      <header style={{ padding: 18, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #17353a" }}><div><b style={{ fontSize: 22 }}>Vasta</b><div style={{ color: "#7e9995", fontSize: 12 }}>محادثة خاصة بين شخصين</div></div>{profile && <span style={{ color: "#7e9995", fontSize: 12 }}>{profile.phoneNumber}</span>}</header>
+      <header style={{ padding: 18, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, borderBottom: "1px solid #17353a" }}><div><b style={{ fontSize: 22 }}>Vasta</b><div style={{ color: "#7e9995", fontSize: 12 }}>محادثة خاصة بين شخصين</div></div><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{conversation && peerId && <VastaCallActions conversationId={conversation.id} peerId={peerId} />}{profile && <span style={{ color: "#7e9995", fontSize: 12 }}>{profile.phoneNumber}</span>}</div></header>
       {!conversation ? <section style={{ padding: 32 }}><h1 style={{ marginTop: 0 }}>ابدأ محادثة خاصة</h1><p style={{ color: "#91aaa6" }}>ابحث عن المستخدم برقم هاتفه.</p><div style={{ display: "flex", gap: 10, marginTop: 18 }}><input dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+90 ..." style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} /><button onClick={() => void find()} disabled={busy} style={{ padding: "0 18px", border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 800 }}>{busy ? "بحث..." : "بحث"}</button></div>{contact && <button onClick={() => void open()} style={{ marginTop: 18, width: "100%", padding: 16, textAlign: "right", borderRadius: 16, border: "1px solid #21474c", background: "#102226", color: "white" }}><b>{contact.displayName}</b><div dir="ltr" style={{ color: "#88a39f", fontSize: 12 }}>{contact.phoneNumber}</div></button>}{error && <p style={{ color: "#ff7784" }}>{error}</p>}</section> :
       <section style={{ display: "flex", flexDirection: "column", height: "78vh" }}>
         <div style={{ padding: 16, borderBottom: "1px solid #17353a" }}><b>{conversation.names[conversation.participants.find((id) => id !== profile?.uid) || conversation.participants[0]] || "محادثة خاصة"}</b></div>

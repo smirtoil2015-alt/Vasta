@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./white-theme.css";
 import VastaPhonePicker from "@/components/vasta-phone-picker";
+import VastaGoogleLogin from "@/components/vasta-google-login";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body>
         {children}
         <VastaPhonePicker />
+        <VastaGoogleLogin />
       </body>
     </html>
   );

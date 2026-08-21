@@ -20,39 +20,32 @@ export function validateMedia(file: File) {
   return kind;
 }
 
+function safeFileName(file: File) {
+  return file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(0, 120) || "file";
+}
+
 export async function uploadPrivateMedia(conversationId: string, senderUid: string, file: File) {
   const kind = validateMedia(file);
-  const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(0, 120) || "file";
-  const storagePath = `conversations/${conversationId}/${senderUid}/media/${crypto.randomUUID()}-${safeName}`;
+  const storagePath = `conversations/${conversationId}/${senderUid}/media/${crypto.randomUUID()}-${safeFileName(file)}`;
   const storageRef = ref(storage, storagePath);
   await uploadBytes(storageRef, file, { contentType: file.type });
   const mediaUrl = await getDownloadURL(storageRef);
   return { kind, mediaUrl, storagePath, fileName: file.name, sizeBytes: file.size, mimeType: file.type };
 }
 
-export async function sendMediaMessage(
-  conversationId: string,
-  sender: VastaProfile,
-  file: File,
-  caption = "",
-) {
+export async function uploadGroupMedia(groupId: string, senderUid: string, file: File) {
+  const kind = validateMedia(file);
+  const storagePath = `groups/${groupId}/${senderUid}/media/${crypto.randomUUID()}-${safeFileName(file)}`;
+  const storageRef = ref(storage, storagePath);
+  await uploadBytes(storageRef, file, { contentType: file.type });
+  const mediaUrl = await getDownloadURL(storageRef);
+  return { kind, mediaUrl, storagePath, fileName: file.name, sizeBytes: file.size, mimeType: file.type };
+}
+
+export async function sendMediaMessage(conversationId: string, sender: VastaProfile, file: File, caption = "") {
   const media = await uploadPrivateMedia(conversationId, sender.uid, file);
   const now = Date.now();
-  await addDoc(collection(db, "conversations", conversationId, "messages"), {
-    kind: "media",
-    mediaKind: media.kind,
-    text: caption.trim(),
-    senderId: sender.uid,
-    createdAt: now,
-    mediaUrl: media.mediaUrl,
-    storagePath: media.storagePath,
-    fileName: media.fileName,
-    mimeType: media.mimeType,
-    sizeBytes: media.sizeBytes,
-  });
-  await setDoc(doc(db, "conversations", conversationId), {
-    lastMessage: media.kind === "image" ? "🖼️ صورة" : media.kind === "video" ? "🎬 فيديو" : "📄 ملف",
-    lastMessageAt: now,
-  }, { merge: true });
+  await addDoc(collection(db, "conversations", conversationId, "messages"), { kind: "media", mediaKind: media.kind, text: caption.trim(), senderId: sender.uid, createdAt: now, mediaUrl: media.mediaUrl, storagePath: media.storagePath, fileName: media.fileName, mimeType: media.mimeType, sizeBytes: media.sizeBytes });
+  await setDoc(doc(db, "conversations", conversationId), { lastMessage: media.kind === "image" ? "🖼️ صورة" : media.kind === "video" ? "🎬 فيديو" : "📄 ملف", lastMessageAt: now }, { merge: true });
   return media;
 }

@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, addDoc, type Unsubscribe } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, addDoc, where, type Unsubscribe } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export type VastaCallKind = "audio" | "video";
@@ -22,6 +22,14 @@ export async function createCall(conversationId: string, callerId: string, calle
 export function watchCall(conversationId: string, callId: string, onChange: (call: VastaCall | null) => void): Unsubscribe {
   return onSnapshot(doc(db, "conversations", conversationId, "calls", callId), (snapshot) => {
     onChange(snapshot.exists() ? ({ id: snapshot.id, conversationId, ...(snapshot.data() as Omit<VastaCall, "id" | "conversationId">) }) : null);
+  });
+}
+
+export function watchIncomingCall(conversationId: string, calleeId: string, onChange: (call: VastaCall | null) => void): Unsubscribe {
+  const q = query(collection(db, "conversations", conversationId, "calls"), where("calleeId", "==", calleeId), where("status", "==", "ringing"));
+  return onSnapshot(q, (snapshot) => {
+    const item = snapshot.docs[0];
+    onChange(item ? ({ id: item.id, conversationId, ...(item.data() as Omit<VastaCall, "id" | "conversationId">) }) : null);
   });
 }
 

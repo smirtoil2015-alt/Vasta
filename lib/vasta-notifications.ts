@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -35,4 +36,16 @@ export async function registerDeviceTokenPlaceholder(uid: string, token: string)
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
+}
+
+export async function notifyPrivateMessage(conversationId: string, body: string) {
+  const user = getAuth().currentUser;
+  if (!user || !body.trim()) return;
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/notifications/send", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ conversationId, body: body.slice(0, 240) }),
+  });
+  if (!response.ok) throw new Error("Notification request failed");
 }

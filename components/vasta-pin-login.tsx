@@ -1,142 +1,120 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  updateProfile,
   type User,
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { normalizePhone, phoneIndexId, type VastaProfile } from "@/lib/vasta-chat";
+import type { VastaProfile } from "@/lib/vasta-chat";
 
-type Step = "phone" | "code";
+type Mode = "login" | "register";
 
-async function savePhoneProfile(user: User, phone: string) {
-  const normalized = normalizePhone(phone);
+async function saveEmailProfile(user: User) {
+  const ref = doc(db, "users", user.uid);
   const profile: VastaProfile = {
     uid: user.uid,
-    phoneNumber: normalized,
+    phoneNumber: user.phoneNumber || "",
     displayName: user.displayName || "مستخدم Vasta",
     photoURL: user.photoURL || "",
     bio: "متاح على Vasta",
     updatedAt: serverTimestamp(),
   };
-  await setDoc(doc(db, "users", user.uid), profile, { merge: true });
-  await setDoc(doc(db, "phoneIndex", phoneIndexId(normalized)), {
-    uid: user.uid,
-    displayName: profile.displayName,
-  }, { merge: true });
+  await setDoc(ref, profile, { merge: true });
 }
 
 export default function VastaPinLogin() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const [message, setMessage] = useState("");
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
-  useEffect(() => {
-    return () => {
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
-    };
-  }, []);
-
   if (user) return null;
 
-  function getRecaptcha() {
-    if (recaptchaRef.current) return recaptchaRef.current;
-    recaptchaRef.current = new RecaptchaVerifier(auth, "vasta-recaptcha", {
-      size: "invisible",
-      callback: () => undefined,
-      "expired-callback": () => {
-        recaptchaRef.current?.clear();
-        recaptchaRef.current = null;
-      },
-    });
-    return recaptchaRef.current;
-  }
-
-  async function sendCode(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
-    const normalized = normalizePhone(phone);
-    if (!/^\+[1-9]\d{7,14}$/.test(normalized)) {
-      setError("اكتب رقم الهاتف بصيغة دولية، مثل +963938754177.");
+    setMessage("");
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError("اكتب بريدًا إلكترونيًا صحيحًا.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("كلمة المرور يجب أن تتكون من 6 أحرف أو أرقام على الأقل.");
+      return;
+    }
+    if (mode === "register" && displayName.trim().length < 2) {
+      setError("اكتب اسمًا من حرفين على الأقل.");
       return;
     }
 
     setBusy(true);
     try {
-      const appVerifier = getRecaptcha();
-      confirmationRef.current = await signInWithPhoneNumber(auth, normalized, appVerifier);
-      setStep("code");
+      let signedIn: User;
+      if (mode === "register") {
+        const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+        signedIn = result.user;
+        await updateProfile(signedIn, { displayName: displayName.trim() });
+      } else {
+        const result = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        signedIn = result.user;
+      }
+      await saveEmailProfile(signedIn);
     } catch (err: any) {
       console.error(err);
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
       const code = String(err?.code || "");
-      if (code === "auth/invalid-phone-number") {
-        setError("رقم الهاتف غير صحيح.");
-      } else if (code === "auth/too-many-requests") {
-        setError("تمت محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.");
+      if (code === "auth/email-already-in-use") {
+        setError("هذا البريد مستخدم بالفعل. اختر تسجيل الدخول.");
+      } else if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
       } else if (code === "auth/operation-not-allowed") {
-        setError("فعّل تسجيل الدخول برقم الهاتف من Firebase Authentication.");
-      } else if (code === "auth/unauthorized-domain") {
-        setError("أضف نطاق Vasta إلى Authorized domains في Firebase.");
+        setError("فعّل تسجيل الدخول بالبريد وكلمة المرور من Firebase Authentication.");
+      } else if (code === "auth/weak-password") {
+        setError("كلمة المرور ضعيفة. استخدم 6 أحرف أو أرقام على الأقل.");
       } else {
-        setError("تعذر إرسال رمز SMS الآن. حاول مرة أخرى.");
+        setError("تعذر تسجيل الدخول الآن. حاول مرة أخرى.");
       }
     } finally {
       setBusy(false);
     }
   }
 
-  async function verifyCode(event: React.FormEvent) {
-    event.preventDefault();
+  async function resetPassword() {
     setError("");
-    if (!/^\d{6}$/.test(code)) {
-      setError("أدخل رمز التحقق المكوّن من 6 أرقام.");
+    setMessage("");
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError("اكتب بريدك الإلكتروني أولًا لإرسال رابط استعادة كلمة المرور.");
       return;
     }
-    if (!confirmationRef.current) {
-      setError("انتهت جلسة التحقق. اطلب رمزًا جديدًا.");
-      setStep("phone");
-      return;
-    }
-
     setBusy(true);
     try {
-      const result = await confirmationRef.current.confirm(code);
-      await savePhoneProfile(result.user, normalizePhone(phone));
+      await sendPasswordResetEmail(auth, normalizedEmail);
+      setMessage("تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني.");
     } catch (err: any) {
       console.error(err);
-      const firebaseCode = String(err?.code || "");
-      if (firebaseCode === "auth/invalid-verification-code") {
-        setError("رمز التحقق غير صحيح.");
-      } else if (firebaseCode === "auth/code-expired") {
-        setError("انتهت صلاحية الرمز. اطلب رمزًا جديدًا.");
+      const code = String(err?.code || "");
+      if (code === "auth/user-not-found") {
+        setError("لا يوجد حساب بهذا البريد الإلكتروني.");
       } else {
-        setError("تعذر التحقق من الرمز. حاول مرة أخرى.");
+        setError("تعذر إرسال رابط استعادة كلمة المرور. حاول مرة أخرى.");
       }
     } finally {
       setBusy(false);
     }
-  }
-
-  function backToPhone() {
-    confirmationRef.current = null;
-    setCode("");
-    setError("");
-    setStep("phone");
   }
 
   return (
@@ -144,55 +122,45 @@ export default function VastaPinLogin() {
       <section className="vasta-pin-card">
         <div className="vasta-pin-logo">V</div>
         <div className="vasta-pin-brand">Vasta</div>
-        <div className="vasta-pin-subtitle">دخول مجاني برقم الهاتف</div>
+        <div className="vasta-pin-subtitle">تسجيل دخول آمن بالبريد الإلكتروني</div>
 
-        {step === "phone" ? (
-          <form onSubmit={sendCode} className="vasta-pin-form">
+        <div className="vasta-pin-tabs">
+          <button type="button" className={mode === "login" ? "active" : ""} onClick={() => { setMode("login"); setError(""); setMessage(""); }}>دخول</button>
+          <button type="button" className={mode === "register" ? "active" : ""} onClick={() => { setMode("register"); setError(""); setMessage(""); }}>إنشاء حساب</button>
+        </div>
+
+        <form onSubmit={submit} className="vasta-pin-form">
+          {mode === "register" && (
             <label>
-              <span>رقم الهاتف</span>
-              <input
-                dir="ltr"
-                type="tel"
-                inputMode="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+963 938 754 177"
-                autoComplete="tel"
-                required
-              />
+              <span>الاسم</span>
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="اسمك" autoComplete="name" required />
             </label>
-            <button type="submit" className="vasta-pin-submit" disabled={busy}>
-              {busy ? "جارٍ إرسال الرمز..." : "متابعة عبر SMS"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={verifyCode} className="vasta-pin-form">
-            <label>
-              <span>رمز التحقق</span>
-              <input
-                dir="ltr"
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
-                autoComplete="one-time-code"
-                required
-              />
-            </label>
-            <button type="submit" className="vasta-pin-submit" disabled={busy}>
-              {busy ? "جارٍ التحقق..." : "تأكيد الرمز"}
-            </button>
-            <button type="button" className="vasta-pin-back" onClick={backToPhone} disabled={busy}>
-              تغيير رقم الهاتف
-            </button>
-          </form>
+          )}
+
+          <label>
+            <span>البريد الإلكتروني</span>
+            <input dir="ltr" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" required />
+          </label>
+
+          <label>
+            <span>كلمة المرور</span>
+            <input dir="ltr" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete={mode === "register" ? "new-password" : "current-password"} required />
+          </label>
+
+          <button type="submit" className="vasta-pin-submit" disabled={busy}>
+            {busy ? "جارٍ التحقق..." : mode === "login" ? "دخول إلى Vasta" : "إنشاء حساب Vasta"}
+          </button>
+        </form>
+
+        {mode === "login" && (
+          <button type="button" className="vasta-pin-back" onClick={resetPassword} disabled={busy}>
+            نسيت كلمة المرور؟
+          </button>
         )}
 
         {error && <div className="vasta-pin-error">{error}</div>}
-        <p className="vasta-pin-note">سيتم إرسال رمز تحقق SMS إلى رقم هاتفك. لن نعرض رقم هاتفك للمستخدمين الآخرين.</p>
-        <div id="vasta-recaptcha" />
+        {message && <div className="vasta-pin-note">{message}</div>}
+        <p className="vasta-pin-note">لا نحتاج إلى رقم هاتف أو SMS لتسجيل الدخول إلى Vasta.</p>
       </section>
     </div>
   );

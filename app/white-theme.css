@@ -18,3 +18,9 @@ html,body{background:#f5f7f6!important;color:#15211e!important}body{background:l
 .vasta-phone-row .vasta-country-picker{position:absolute!important;left:6px!important;top:6px!important;bottom:6px!important;width:178px!important;z-index:3!important;border:0!important;border-right:1px solid #e0e6e3!important;border-radius:10px!important;background:#f7faf8!important;color:#15211e!important;font-size:12px!important;font-weight:700!important;padding:0 8px!important;cursor:pointer!important;outline:none!important}
 .vasta-phone-row input[type="tel"]{width:100%!important;box-sizing:border-box!important;padding-left:198px!important;padding-right:14px!important;direction:ltr!important}
 @media(max-width:560px){.vasta-phone-row .vasta-country-picker{width:150px!important;font-size:11px!important}.vasta-phone-row input[type="tel"]{padding-left:168px!important}}
+
+/* Official Vasta icon: use the same artwork inside the UI and remove the old letter/emoji layers. */
+.logo-mark,.welcome-logo{background-image:url('/vasta-logo.svg')!important;background-repeat:no-repeat!important;background-position:center!important;background-size:cover!important;color:transparent!important;font-size:0!important;box-shadow:0 12px 30px rgba(37,211,102,.22)!important;overflow:hidden!important}
+.logo-mark::before,.logo-mark::after,.welcome-logo::before,.welcome-logo::after{display:none!important;content:none!important}
+.auth-topline .logo-mark{width:104px!important;height:104px!important}
+.welcome-logo.large{width:112px!important;height:112px!important}

@@ -24,7 +24,7 @@ import {
 import { uploadVoiceBlob, chooseVoiceMimeType } from "@/lib/vasta-voice";
 import VastaMediaPicker, { type VastaMediaSelection } from "@/components/vasta-media-picker";
 import { uploadPrivateMedia } from "@/lib/vasta-media";
-import VastaCallActions from "@/lib/vasta-call-actions";
+import VastaCallActions from "@/lib/vasta-call-actions.tsx";
 
 function formatTime(value: number) { return new Date(value).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" }); }
 function duration(ms: number) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`; }
@@ -88,7 +88,7 @@ export default function PrivateChat() {
   }
   async function selectMedia(sel: VastaMediaSelection) {
     if (!profile || !conversation) return; setBusy(true);
-    try { const uploaded = await uploadPrivateMedia(conversation.id, profile.uid, sel.file, sel.kind); await sendMediaMessage(conversation.id, profile, uploaded, replyTo ?? undefined); setReplyTo(null); }
+    try { const uploaded = await uploadPrivateMedia(conversation.id, profile.uid, sel.file); await sendMediaMessage(conversation.id, profile, uploaded.file, replyTo?.text ?? ""); setReplyTo(null); }
     catch (e) { console.error(e); setError("تعذر رفع المرفق الآن."); } finally { setBusy(false); }
   }
   async function startVoice() {
@@ -159,13 +159,17 @@ export default function PrivateChat() {
             </div>
           </div>; })}
         </div>
-        {(replyTo || editing) && <div style={{ padding: "8px 12px", borderTop: "1px solid #17353a", background: "#0a181b", display: "flex", gap: 8, alignItems: "center" }}>{editing ? <><span style={{ flex: 1 }}>✏️ تعديل الرسالة</span><button onClick={() => setEditing(null)}>إلغاء</button></> : <><span style={{ flex: 1, color: "#9ab0ac" }}>↩ الرد على: {replyTo?.deleted ? "رسالة محذوفة" : replyTo?.text}</span><button onClick={() => setReplyTo(null)}>×</button></>}</div>}
-        <div style={{ padding: 12, borderTop: "1px solid #17353a", display: "flex", gap: 8, alignItems: "center" }}>
-          {voiceUrl ? <><audio controls src={voiceUrl} style={{ flex: 1 }} /><button onClick={() => stopVoice(true)}>إلغاء</button><button onClick={() => void sendVoice()} disabled={busy}>إرسال</button></> : recording ? <><span style={{ color: "#ff6b7a" }}>● تسجيل {duration(voiceMs)}</span><button onClick={() => stopVoice(true)}>حذف</button><button onClick={() => stopVoice(false)}>إيقاف</button></> : editing ? <><input value={editText} onChange={(e) => setEditText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void editMessage()} style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} placeholder="عدّل الرسالة..." /><button onClick={() => void editMessage()} style={{ padding: "0 18px", height: 48, border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 800 }}>حفظ</button></> : <><button onClick={() => setMediaOpen(true)} title="مرفق">📎</button><button onClick={() => void startVoice()} title="صوت">🎤</button><input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} placeholder={replyTo ? "اكتب ردًا..." : "اكتب رسالة..."} style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} /><button onClick={() => void send()} style={{ padding: "0 18px", height: 48, border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 800 }}>إرسال</button></>}
-        </div>
-        {error && <div style={{ padding: "0 16px 12px", color: "#ff7784" }}>{error}</div>}
+        {(replyTo || editing) && <div style={{ padding: "8px 12px", borderTop: "1px solid #17353a", background: "#0a181b", display: "flex", gap: 8, alignItems: "center" }}>{editing ? <><span style={{ flex: 1 }}>✏️ تعديل الرسالة</span><button onClick={() => { setEditing(null); setEditText(""); }}>×</button></> : <><span style={{ flex: 1 }}>↩ الرد على: {replyTo?.text?.slice(0, 60) || "رسالة"}</span><button onClick={() => setReplyTo(null)}>×</button></>}</div>}
+        <form onSubmit={(e) => { e.preventDefault(); if (editing) void editMessage(); else void send(); }} style={{ padding: 16, borderTop: "1px solid #17353a", display: "flex", gap: 8 }}>
+          {editing ? <input value={editText} onChange={(e) => setEditText(e.target.value)} placeholder="تعديل الرسالة" style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} /> : <>
+            <VastaMediaPicker open={mediaOpen} onClose={() => setMediaOpen(false)} onSelect={(selection) => void selectMedia(selection)} />
+            <button type="button" onClick={() => setMediaOpen(true)} disabled={busy} style={{ padding: "0 14px", borderRadius: 14, border: "1px solid #21474c", background: "#102226", color: "white" }}>📎</button>
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="اكتب رسالة..." style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} />
+            {recording || voiceBlob ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{recording ? <><span>{duration(voiceMs)}</span><button type="button" onClick={() => stopVoice()}>⏹</button></> : <><audio controls src={voiceUrl} style={{ width: 180 }} /><button type="button" onClick={() => void sendVoice()} disabled={busy}>إرسال</button><button type="button" onClick={() => stopVoice(true)}>×</button></>}</div> : <button type="button" onClick={() => void startVoice()} style={{ borderRadius: 14, border: "1px solid #21474c", background: "#102226", color: "white", padding: "0 14px" }}>🎙️</button>}
+          </>}
+          <button type="submit" disabled={busy} style={{ padding: "0 18px", border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 900 }}>{editing ? "حفظ" : "إرسال"}</button>
+        </form>
       </section>}
     </div>
-    <VastaMediaPicker open={mediaOpen} onClose={() => setMediaOpen(false)} onSelect={(sel) => void selectMedia(sel)} />
   </main>;
 }

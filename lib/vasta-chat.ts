@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -62,67 +63,43 @@ export async function ensureProfile(user: User): Promise<VastaProfile> {
     bio: "متاح على Vasta",
     updatedAt: serverTimestamp(),
   };
-
-  if (!snapshot.exists()) {
-    await setDoc(ref, profile);
-  }
-
+  if (!snapshot.exists()) await setDoc(ref, profile);
   const phoneNumber = normalizePhone(user.phoneNumber ?? profile.phoneNumber);
-  if (phoneNumber) {
-    await setDoc(doc(db, "phoneIndex", phoneIndexId(phoneNumber)), {
-      uid: user.uid,
-      displayName: profile.displayName,
-    });
-  }
-
+  if (phoneNumber) await setDoc(doc(db, "phoneIndex", phoneIndexId(phoneNumber)), { uid: user.uid, displayName: profile.displayName });
   return { ...profile, phoneNumber };
 }
 
-export function watchConversations(
-  uid: string,
-  onChange: (items: VastaConversation[]) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  const q = query(
-    collection(db, "conversations"),
-    where("participants", "array-contains", uid),
-    orderBy("lastMessageAt", "desc"),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      onChange(
-        snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<VastaConversation, "id">),
-        })),
-      );
-    },
-    (error) => onError?.(error),
-  );
+export function watchConversations(uid: string, onChange: (items: VastaConversation[]) => void, onError?: (error: Error) => void): Unsubscribe {
+  const q = query(collection(db, "conversations"), where("participants", "array-contains", uid), orderBy("lastMessageAt", "desc"));
+  return onSnapshot(q, (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<VastaConversation, "id">) }))), (error) => onError?.(error));
 }
 
-export function watchMessages(
-  conversationId: string,
-  onChange: (items: VastaMessage[]) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  const q = query(
-    collection(db, "conversations", conversationId, "messages"),
-    orderBy("createdAt", "asc"),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      onChange(
-        snapshot.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<VastaMessage, "id">),
-        })),
-      );
-    },
-    (error) => onError?.(error),
-  );
+export function watchMessages(conversationId: string, onChange: (items: VastaMessage[]) => void, onError?: (error: Error) => void): Unsubscribe {
+  const q = query(collection(db, "conversations", conversationId, "messages"), orderBy("createdAt", "asc"));
+  return onSnapshot(q, (snapshot) => onChange(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<VastaMessage, "id">) }))), (error) => onError?.(error));
+}
+
+export function watchTyping(conversationId: string, onChange: (uid: string | null) => void, currentUid: string): Unsubscribe {
+  return onSnapshot(collection(db, "conversations", conversationId, "typing"), (snapshot) => {
+    const active = snapshot.docs
+      .map((item) => ({ uid: item.id, ...(item.data() as { active?: boolean; updatedAt?: { seconds?: number } }) }))
+      .find((item) => item.uid !== currentUid && item.active);
+    onChange(active?.uid ?? null);
+  });
+}
+
+export function watchReadReceipts(conversationId: string, messageId: string, onChange: (uids: string[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, "conversations", conversationId, "messages", messageId, "receipts"), (snapshot) => onChange(snapshot.docs.map((item) => item.id)));
+}
+
+export async function setTyping(conversationId: string, uid: string, active: boolean) {
+  const ref = doc(db, "conversations", conversationId, "typing", uid);
+  if (!active) return deleteDoc(ref);
+  return setDoc(ref, { active: true, updatedAt: serverTimestamp() });
+}
+
+export async function markMessageRead(conversationId: string, messageId: string, uid: string) {
+  return setDoc(doc(db, "conversations", conversationId, "messages", messageId, "receipts", uid), { readAt: serverTimestamp() }, { merge: true });
 }
 
 export async function findProfileByPhone(phone: string): Promise<VastaProfile | null> {
@@ -140,10 +117,7 @@ export async function openConversation(current: VastaProfile, other: VastaProfil
   const id = conversationIdFor(current.uid, other.uid);
   const payload: Omit<VastaConversation, "id"> = {
     participants: [current.uid, other.uid],
-    names: {
-      [current.uid]: current.displayName,
-      [other.uid]: other.displayName,
-    },
+    names: { [current.uid]: current.displayName, [other.uid]: other.displayName },
     lastMessage: "ابدأ المحادثة ✨",
     lastMessageAt: Date.now(),
   };
@@ -155,14 +129,6 @@ export async function sendTextMessage(conversationId: string, sender: VastaProfi
   const value = text.trim();
   if (!value) return;
   const now = Date.now();
-  await addDoc(collection(db, "conversations", conversationId, "messages"), {
-    text: value,
-    senderId: sender.uid,
-    createdAt: now,
-  });
-  await setDoc(
-    doc(db, "conversations", conversationId),
-    { lastMessage: value, lastMessageAt: now },
-    { merge: true },
-  );
+  await addDoc(collection(db, "conversations", conversationId, "messages"), { text: value, senderId: sender.uid, createdAt: now });
+  await setDoc(doc(db, "conversations", conversationId), { lastMessage: value, lastMessageAt: now }, { merge: true });
 }

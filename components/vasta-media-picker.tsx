@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { mediaKind, validateMedia, VASTA_MEDIA_MAX_BYTES } from "@/lib/vasta-media";
+import "./vasta-media-picker.css";
 
 export type VastaMediaSelection = {
   file: File;

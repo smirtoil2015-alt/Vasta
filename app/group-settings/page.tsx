@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { arrayRemove, arrayUnion, doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -9,7 +9,7 @@ import { findProfileByPhone, findProfileByUsername } from "@/lib/vasta-chat";
 type Group = { ownerId: string; adminIds?: string[]; memberIds: string[]; name: string };
 
 export default function GroupSettingsPage() {
-  const groupId = useMemo(() => new URLSearchParams(window.location.search).get("id") ?? "", []);
+  const [groupId, setGroupId] = useState("");
   const [uid, setUid] = useState("");
   const [group, setGroup] = useState<Group | null>(null);
   const [identifier, setIdentifier] = useState("");
@@ -19,6 +19,10 @@ export default function GroupSettingsPage() {
 
   const admins = group?.adminIds?.length ? group.adminIds : group?.ownerId ? [group.ownerId] : [];
   const canManage = !!uid && !!group && admins.includes(uid);
+
+  useEffect(() => {
+    setGroupId(new URLSearchParams(window.location.search).get("id") ?? "");
+  }, []);
 
   useEffect(() => onAuthStateChanged(auth, (user) => setUid(user?.uid ?? "")), []);
 

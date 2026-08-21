@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import {
@@ -22,7 +22,7 @@ function formatTime(value: number) {
   return new Date(value).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
 }
 
-export default function PrivateChat() {
+function PrivateChatContent() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<VastaProfile | null>(null);
   const [phone, setPhone] = useState("");
@@ -160,5 +160,13 @@ export default function PrivateChat() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function PrivateChat() {
+  return (
+    <Suspense fallback={<main dir="rtl" style={{ padding: 40, fontFamily: "sans-serif" }}>جارٍ تحميل المحادثة...</main>}>
+      <PrivateChatContent />
+    </Suspense>
   );
 }

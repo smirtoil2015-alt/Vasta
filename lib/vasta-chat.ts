@@ -42,6 +42,10 @@ export function normalizePhone(phone: string) {
   return phone.replace(/[^+\d]/g, "");
 }
 
+export function phoneIndexId(phone: string) {
+  return encodeURIComponent(normalizePhone(phone));
+}
+
 export function conversationIdFor(a: string, b: string) {
   return [a, b].sort().join("__");
 }
@@ -49,9 +53,8 @@ export function conversationIdFor(a: string, b: string) {
 export async function ensureProfile(user: User): Promise<VastaProfile> {
   const ref = doc(db, "users", user.uid);
   const snapshot = await getDoc(ref);
-  if (snapshot.exists()) return snapshot.data() as VastaProfile;
-
-  const profile: VastaProfile = {
+  const existing = snapshot.exists() ? (snapshot.data() as VastaProfile) : null;
+  const profile: VastaProfile = existing ?? {
     uid: user.uid,
     phoneNumber: normalizePhone(user.phoneNumber ?? ""),
     displayName: "مستخدم Vasta",
@@ -59,8 +62,20 @@ export async function ensureProfile(user: User): Promise<VastaProfile> {
     bio: "متاح على Vasta",
     updatedAt: serverTimestamp(),
   };
-  await setDoc(ref, profile);
-  return profile;
+
+  if (!snapshot.exists()) {
+    await setDoc(ref, profile);
+  }
+
+  const phoneNumber = normalizePhone(user.phoneNumber ?? profile.phoneNumber);
+  if (phoneNumber) {
+    await setDoc(doc(db, "phoneIndex", phoneIndexId(phoneNumber)), {
+      uid: user.uid,
+      displayName: profile.displayName,
+    });
+  }
+
+  return { ...profile, phoneNumber };
 }
 
 export function watchConversations(
@@ -110,12 +125,14 @@ export function watchMessages(
   );
 }
 
-export async function findProfileByPhone(phone: string) {
+export async function findProfileByPhone(phone: string): Promise<VastaProfile | null> {
   const normalized = normalizePhone(phone);
-  const q = query(collection(db, "users"), where("phoneNumber", "==", normalized));
-  const snapshot = await import("firebase/firestore").then(({ getDocs }) => getDocs(q));
-  const first = snapshot.docs[0];
-  return first ? (first.data() as VastaProfile) : null;
+  if (!normalized) return null;
+  const indexSnapshot = await getDoc(doc(db, "phoneIndex", phoneIndexId(normalized)));
+  if (!indexSnapshot.exists()) return null;
+  const { uid } = indexSnapshot.data() as { uid: string };
+  const profileSnapshot = await getDoc(doc(db, "users", uid));
+  return profileSnapshot.exists() ? (profileSnapshot.data() as VastaProfile) : null;
 }
 
 export async function openConversation(current: VastaProfile, other: VastaProfile) {

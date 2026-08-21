@@ -34,9 +34,22 @@ service cloud.firestore {
         allow read: if isParticipant(conversationId);
         allow create: if isParticipant(conversationId)
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 10000;
+          && (
+            (request.resource.data.kind == 'text'
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 10000)
+            ||
+            (request.resource.data.kind == 'voice'
+              && request.resource.data.text == ''
+              && request.resource.data.audioUrl is string
+              && request.resource.data.storagePath is string
+              && request.resource.data.durationMs is int
+              && request.resource.data.durationMs > 0
+              && request.resource.data.durationMs <= 300000
+              && request.resource.data.mimeType is string
+              && request.resource.data.mimeType.matches('audio/.*'))
+          );
         allow update, delete: if isParticipant(conversationId) && resource.data.senderId == request.auth.uid;
 
         match /receipts/{uid} {

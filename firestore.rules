@@ -55,6 +55,18 @@ service cloud.firestore {
               && request.resource.data.durationMs <= 300000
               && request.resource.data.mimeType is string
               && request.resource.data.mimeType.matches('audio/.*'))
+            ||
+            (request.resource.data.kind == 'media'
+              && request.resource.data.text is string
+              && request.resource.data.text.size() <= 2000
+              && request.resource.data.mediaKind in ['image', 'video', 'file']
+              && request.resource.data.mediaUrl is string
+              && request.resource.data.storagePath is string
+              && request.resource.data.fileName is string
+              && request.resource.data.mimeType is string
+              && request.resource.data.sizeBytes is int
+              && request.resource.data.sizeBytes > 0
+              && request.resource.data.sizeBytes <= 25 * 1024 * 1024)
           );
         allow update, delete: if isParticipant(conversationId) && resource.data.senderId == request.auth.uid;
 

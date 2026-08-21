@@ -73,6 +73,30 @@ service cloud.firestore {
         allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
         allow delete: if isParticipant(conversationId) && uid == request.auth.uid;
       }
+
+      match /calls/{callId} {
+        allow read: if isParticipant(conversationId);
+        allow create: if isParticipant(conversationId)
+          && request.resource.data.callerId == request.auth.uid
+          && request.resource.data.calleeId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
+          && request.resource.data.callerId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
+          && request.resource.data.callerId != request.resource.data.calleeId
+          && request.resource.data.kind in ['audio', 'video']
+          && request.resource.data.status == 'ringing';
+        allow update: if isParticipant(conversationId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','updatedAt'])
+          && request.resource.data.status in ['ringing', 'active', 'ended'];
+        allow delete: if false;
+
+        match /callerCandidates/{candidateId} {
+          allow read, create: if isParticipant(conversationId);
+          allow update, delete: if false;
+        }
+        match /calleeCandidates/{candidateId} {
+          allow read, create: if isParticipant(conversationId);
+          allow update, delete: if false;
+        }
+      }
     }
 
     match /groups/{groupId} {

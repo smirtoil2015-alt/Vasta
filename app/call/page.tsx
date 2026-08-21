@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createCall, addIceCandidate, watchIceCandidates, watchCall, setCallStatus, type VastaCallKind } from "@/lib/vasta-calls";
 import { getVastaRtcConfiguration } from "@/lib/vasta-rtc-config";
 
 export default function CallPage() {
-  const params = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
-  const [conversationId, setConversationId] = useState(params.get("conversationId") ?? "");
-  const [peerId, setPeerId] = useState(params.get("peerId") ?? "");
+  const [conversationId, setConversationId] = useState("");
+  const [peerId, setPeerId] = useState("");
   const [callId, setCallId] = useState("");
-  const [kind, setKind] = useState<VastaCallKind>(params.get("kind") === "audio" ? "audio" : "video");
+  const [kind, setKind] = useState<VastaCallKind>("video");
   const [status, setStatus] = useState("جاهز للاتصال");
   const [connected, setConnected] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -27,6 +25,12 @@ export default function CallPage() {
   const remoteAudio = useRef<HTMLAudioElement | null>(null);
   const cleanups = useRef<(() => void)[]>([]);
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    setConversationId(query.get("conversationId") ?? "");
+    setPeerId(query.get("peerId") ?? "");
+    setKind(query.get("kind") === "audio" ? "audio" : "video");
+  }, []);
   useEffect(() => onAuthStateChanged(auth, setUser), []);
   useEffect(() => () => { cleanups.current.forEach((fn) => fn()); localStream.current?.getTracks().forEach((t) => t.stop()); pc.current?.close(); }, []);
 

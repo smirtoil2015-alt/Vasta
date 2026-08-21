@@ -11,8 +11,8 @@ Vasta is being built as a next-generation internet messenger, not as a visual co
 ### Vasta Pulse
 Real-time conversation experience with typing, delivery/read states, presence, reactions, replies, and fast media handling.
 
-### Vasta AI
-An assistant designed to live inside conversations: summarize a long thread, translate a message, rewrite a reply, extract tasks, and answer questions about shared content.
+### Vasta Intelligence
+The intelligence layer inside Vasta. Users can ask Vasta to summarize a long thread, translate a message, rewrite a reply, extract tasks, and answer questions about shared content without leaving the conversation.
 
 ### Vasta Spaces
 A richer model for communities: private groups, announcement spaces, topic-based rooms, roles, moderation, and discoverable content when the user chooses.
@@ -33,8 +33,12 @@ Least-privilege Firestore rules, protected media paths, abuse controls, and a de
 3. Media, replies, reactions, read receipts, typing, presence, notifications.
 4. Groups, roles, channels/spaces, search, moderation.
 5. Voice/video calling and multi-device improvements.
-6. Vasta AI features and smart media/file workflows.
+6. Vasta intelligence features and smart media/file workflows.
 7. Security hardening, performance, observability, app-store-ready mobile clients.
+
+## Naming rule
+
+The public product name is **Vasta**. The built-in assistant is also presented as **Vasta** when the context is clear, or as **Vasta، المساعد الذكي** when a label is needed. We do not expose a separate public brand such as “Vasta AI”.
 
 ## Non-negotiables
 

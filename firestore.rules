@@ -7,11 +7,15 @@ service cloud.firestore {
     function isParticipant(conversationId) {
       return signedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
-    function peerId(conversationId) {
-      return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants.where(x, x != request.auth.uid)[0];
-    }
     function isBlocked(peerUid) {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)/blocks/$(peerUid));
+      return signedIn() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)/blocks/$(peerUid)) ||
+        exists(/databases/$(database)/documents/users/$(peerUid)/blocks/$(request.auth.uid))
+      );
+    }
+    function isBlockedInConversation(conversationId) {
+      return isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[0]) ||
+        isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[1]);
     }
     function isGroupMember(groupId) {
       return signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
@@ -69,7 +73,7 @@ service cloud.firestore {
       allow delete: if false;
       match /messages/{messageId} {
         allow read: if isParticipant(conversationId);
-        allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid && !isBlocked(peerId(conversationId)) && (
+        allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid && !isBlockedInConversation(conversationId) && (
           (request.resource.data.kind == 'text' && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 10000) ||
           (request.resource.data.kind == 'voice' && request.resource.data.text == '' && request.resource.data.audioUrl is string && request.resource.data.storagePath is string && request.resource.data.durationMs is int && request.resource.data.durationMs > 0 && request.resource.data.durationMs <= 300000 && request.resource.data.mimeType is string && request.resource.data.mimeType.matches('audio/.*')) ||
           (request.resource.data.kind == 'media' && request.resource.data.text is string && request.resource.data.text.size() <= 2000 && request.resource.data.mediaKind in ['image', 'video', 'file'] && request.resource.data.mediaUrl is string && request.resource.data.storagePath is string && request.resource.data.fileName is string && request.resource.data.mimeType is string && request.resource.data.sizeBytes is int && request.resource.data.sizeBytes > 0 && request.resource.data.sizeBytes <= 25 * 1024 * 1024)

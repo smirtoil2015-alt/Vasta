@@ -90,19 +90,14 @@ export default function PrivateChat() {
     if (!profile || !conversation) return; setBusy(true);
     try {
       const uploaded = await uploadPrivateMedia(conversation.id, profile.uid, sel.file);
-      await sendMediaMessage(
-        conversation.id,
-        profile,
-        {
-          mediaUrl: uploaded.mediaUrl,
-          storagePath: uploaded.storagePath,
-          mediaKind: uploaded.kind,
-          fileName: uploaded.fileName,
-          sizeBytes: uploaded.sizeBytes,
-          mimeType: uploaded.mimeType,
-        },
-        replyTo ?? undefined,
-      );
+      await sendMediaMessage(conversation.id, profile, {
+        mediaUrl: uploaded.mediaUrl,
+        storagePath: uploaded.storagePath,
+        mediaKind: uploaded.kind,
+        fileName: uploaded.fileName,
+        sizeBytes: uploaded.sizeBytes,
+        mimeType: uploaded.mimeType,
+      }, replyTo ?? undefined);
       setReplyTo(null);
     }
     catch (e) { console.error(e); setError("تعذر رفع المرفق الآن."); } finally { setBusy(false); }
@@ -129,3 +124,63 @@ export default function PrivateChat() {
     try { const up = await uploadVoiceBlob(conversation.id, profile.uid, voiceBlob); await sendVoiceMessage(conversation.id, profile, up.audioUrl, up.storagePath, Math.max(500, voiceMs), up.mimeType || voiceType); stopVoice(true); }
     catch (e) { console.error(e); setError("تعذر إرسال الرسالة الصوتية."); } finally { setBusy(false); }
   }
+  async function editMessage() {
+    if (!conversation || !editing || !editText.trim()) return;
+    try { await editOwnMessage(conversation.id, editing.id, editText); setEditing(null); setEditText(""); }
+    catch (e) { console.error(e); setError("تعذر تعديل الرسالة."); }
+  }
+  async function removeMessage(m: VastaMessage) {
+    if (!conversation) return;
+    try { await deleteOwnMessage(conversation.id, m.id); setSelected(null); }
+    catch (e) { console.error(e); setError("تعذر حذف الرسالة."); }
+  }
+  async function togglePin(m: VastaMessage) {
+    if (!conversation) return;
+    try { await setMessagePinned(conversation.id, m.id, !m.pinned); setSelected(null); }
+    catch (e) { console.error(e); setError("تعذر تثبيت الرسالة."); }
+  }
+  async function react(m: VastaMessage, emoji: string) {
+    if (!conversation || !user) return;
+    try { const mine = reactions[m.id]?.[user.uid]; await setMessageReaction(conversation.id, m.id, user.uid, mine === emoji ? "" : emoji); setSelected(null); }
+    catch (e) { console.error(e); setError("تعذر إضافة التفاعل."); }
+  }
+
+  if (!user) return <main style={{ padding: 40, fontFamily: "sans-serif" }}>سجّل الدخول أولًا إلى Vasta.</main>;
+  const peerId = conversation?.participants.find((id) => id !== profile?.uid) ?? "";
+  return <main dir="rtl" style={{ minHeight: "100vh", background: "#071316", color: "#e7f3f1", padding: 24, fontFamily: "sans-serif" }}>
+    <div style={{ maxWidth: 980, margin: "0 auto", background: "#0d1d21", border: "1px solid #17353a", borderRadius: 24, overflow: "hidden" }}>
+      <header style={{ padding: 18, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, borderBottom: "1px solid #17353a" }}><div><b style={{ fontSize: 22 }}>Vasta</b><div style={{ color: "#7e9995", fontSize: 12 }}>محادثة خاصة بين شخصين</div></div><div style={{ display: "flex", alignItems: "center", gap: 12 }}>{conversation && peerId && <VastaCallActions conversationId={conversation.id} peerId={peerId} />}{profile && <span style={{ color: "#7e9995", fontSize: 12 }}>{profile.phoneNumber}</span>}</div></header>
+      {!conversation ? <section style={{ padding: 32 }}><h1 style={{ marginTop: 0 }}>ابدأ محادثة خاصة</h1><p style={{ color: "#91aaa6" }}>ابحث عن المستخدم برقم هاتفه.</p><div style={{ display: "flex", gap: 10, marginTop: 18 }}><input dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+90 ..." style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} /><button onClick={() => void find()} disabled={busy} style={{ padding: "0 18px", border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 800 }}>{busy ? "بحث..." : "بحث"}</button></div>{contact && <button onClick={() => void open()} style={{ marginTop: 18, width: "100%", padding: 16, textAlign: "right", borderRadius: 16, border: "1px solid #21474c", background: "#102226", color: "white" }}><b>{contact.displayName}</b><div dir="ltr" style={{ color: "#88a39f", fontSize: 12 }}>{contact.phoneNumber}</div></button>}{error && <p style={{ color: "#ff7784" }}>{error}</p>}</section> :
+      <section style={{ display: "flex", flexDirection: "column", height: "78vh" }}>
+        <div style={{ padding: 16, borderBottom: "1px solid #17353a" }}><b>{conversation.names[conversation.participants.find((id) => id !== profile?.uid) || conversation.participants[0]] || "محادثة خاصة"}</b></div>
+        <div style={{ flex: 1, overflow: "auto", padding: 18 }}>
+          {messages.map((m) => { const mine = m.senderId === user.uid; const myReaction = reactions[m.id]?.[user.uid]; return <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-start" : "flex-end", marginBottom: 10 }}>
+            <div style={{ maxWidth: "75%", position: "relative" }}>
+              <div onClick={() => setSelected(selected === m.id ? null : m.id)} style={{ padding: 12, borderRadius: 16, background: mine ? "#123e36" : "#17282d", cursor: "pointer" }}>
+                {m.pinned && <div style={{ color: "#18e6ae", fontSize: 11, marginBottom: 6 }}>📌 مثبتة</div>}
+                {m.replyToText && <div style={{ borderRight: "3px solid #18e6ae", paddingRight: 8, marginBottom: 7, color: "#93aaa6", fontSize: 11 }}>↩ {m.replyToText}</div>}
+                {m.deleted ? <i style={{ color: "#88a39f" }}>تم حذف هذه الرسالة</i> : m.kind === "voice" ? <div><audio controls src={m.audioUrl} style={{ maxWidth: 260 }} /><div style={{ fontSize: 11, color: "#8da7a2" }}>{duration(m.durationMs || 0)}</div></div> : m.kind === "media" ? <div>{m.mediaKind === "image" ? <img src={m.mediaUrl} alt={m.fileName || "صورة"} style={{ maxWidth: 320, maxHeight: 320, borderRadius: 12, display: "block" }} /> : m.mediaKind === "video" ? <video controls src={m.mediaUrl} style={{ maxWidth: 320, maxHeight: 320, borderRadius: 12 }} /> : <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ color: "#18e6ae" }}>📄 {m.fileName}</a>}</div> : <div>{m.text}</div>}
+                <div style={{ fontSize: 10, color: "#6f8985", marginTop: 5 }}>{formatTime(m.createdAt)}{m.edited ? " · تم التعديل" : ""}</div>
+              </div>
+              {(myReaction || Object.keys(reactions[m.id] || {}).length > 0) && <div style={{ marginTop: 3, fontSize: 12, color: "#18e6ae" }}>{Object.values(reactions[m.id] || {}).join(" ")}</div>}
+              {selected === m.id && !m.deleted && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                <button onClick={() => setReplyTo(m)}>↩ رد</button><button onClick={() => void react(m, "❤️")}>❤️</button><button onClick={() => void react(m, "👍")}>👍</button><button onClick={() => void togglePin(m)}>{m.pinned ? "إلغاء التثبيت" : "📌 تثبيت"}</button>
+                {mine && <><button onClick={() => { setEditing(m); setEditText(m.text); setSelected(null); }} disabled={m.kind !== "text"}>✏️ تعديل</button><button onClick={() => void removeMessage(m)}>🗑️ حذف</button></>}
+              </div>}
+            </div>
+          </div>; })}
+        </div>
+        {(replyTo || editing) && <div style={{ padding: "8px 12px", borderTop: "1px solid #17353a", background: "#0a181b", display: "flex", gap: 8, alignItems: "center" }}>{editing ? <><span style={{ flex: 1 }}>✏️ تعديل الرسالة</span><button onClick={() => { setEditing(null); setEditText(""); }}>×</button></> : <><span style={{ flex: 1 }}>↩ الرد على: {replyTo?.text?.slice(0, 60) || "رسالة"}</span><button onClick={() => setReplyTo(null)}>×</button></>}</div>}
+        <form onSubmit={(e) => { e.preventDefault(); if (editing) void editMessage(); else void send(); }} style={{ padding: 16, borderTop: "1px solid #17353a", display: "flex", gap: 8 }}>
+          {editing ? <input value={editText} onChange={(e) => setEditText(e.target.value)} placeholder="تعديل الرسالة" style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} /> : <>
+            <VastaMediaPicker open={mediaOpen} onClose={() => setMediaOpen(false)} onSelect={(selection) => void selectMedia(selection)} />
+            <button type="button" onClick={() => setMediaOpen(true)} disabled={busy} style={{ padding: "0 14px", borderRadius: 14, border: "1px solid #21474c", background: "#102226", color: "white" }}>📎</button>
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="اكتب رسالة..." style={{ flex: 1, padding: 14, borderRadius: 14, border: "1px solid #21474c", background: "#09171a", color: "white" }} />
+            {recording || voiceBlob ? <div style={{ display: "flex", alignItems: "center", gap: 6 }}>{recording ? <><span>{duration(voiceMs)}</span><button type="button" onClick={() => stopVoice()}>⏹</button></> : <><audio controls src={voiceUrl} style={{ width: 180 }} /><button type="button" onClick={() => void sendVoice()} disabled={busy}>إرسال</button><button type="button" onClick={() => stopVoice(true)}>×</button></>}</div> : <button type="button" onClick={() => void startVoice()} style={{ borderRadius: 14, border: "1px solid #21474c", background: "#102226", color: "white", padding: "0 14px" }}>🎙️</button>}
+          </>}
+          <button type="submit" disabled={busy} style={{ padding: "0 18px", border: 0, borderRadius: 14, background: "#18e6ae", fontWeight: 900 }}>{editing ? "حفظ" : "إرسال"}</button>
+        </form>
+      </section>}
+    </div>
+  </main>;
+}

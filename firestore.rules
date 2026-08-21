@@ -14,6 +14,15 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, create, update: if isSelf(uid);
       allow delete: if false;
+
+      match /settings/{settingId} {
+        allow read, create, update: if isSelf(uid);
+        allow delete: if false;
+      }
+
+      match /devices/{deviceId} {
+        allow read, create, update, delete: if isSelf(uid);
+      }
     }
 
     match /phoneIndex/{phoneId} {

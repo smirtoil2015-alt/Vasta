@@ -8,74 +8,12 @@ import VastaMediaPicker, { type VastaMediaSelection } from "@/components/vasta-m
 import { uploadGroupMedia } from "@/lib/vasta-media";
 
 type Message = { id: string; senderId: string; text: string; createdAt: number; kind?: "text" | "media"; mediaKind?: "image" | "video" | "file"; mediaUrl?: string; fileName?: string; sizeBytes?: number };
-
 export default function GroupChatPage() {
-  const groupId = useMemo(() => new URLSearchParams(window.location.search).get("id") ?? "", []);
-  const [userId, setUserId] = useState("");
-  const [name, setName] = useState("المجموعة");
-  const [members, setMembers] = useState(0);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState("");
-  const [mediaOpen, setMediaOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => onAuthStateChanged(auth, (user) => setUserId(user?.uid ?? "")), []);
-
-  useEffect(() => {
-    if (!groupId) return;
-    let stop = () => {};
-    void getDoc(doc(db, "groups", groupId)).then((snap) => {
-      const data = snap.data();
-      if (data) { setName((data.name as string) || "المجموعة"); setMembers(Array.isArray(data.memberIds) ? data.memberIds.length : 0); }
-    });
-    stop = onSnapshot(query(collection(db, "groups", groupId, "messages"), orderBy("createdAt", "asc"), limit(200)), (snap) => {
-      setMessages(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Message, "id">) })));
-    }, () => setError("تعذر تحديث رسائل المجموعة."));
-    return () => stop();
-  }, [groupId]);
-
-  async function send() {
-    const value = text.trim();
-    if (!value || !userId || !groupId) return;
-    setText(""); setError("");
-    try {
-      await addDoc(collection(db, "groups", groupId, "messages"), { kind: "text", senderId: userId, text: value.slice(0, 10000), createdAt: Date.now() });
-      await updateDoc(doc(db, "groups", groupId), { updatedAt: Date.now() });
-    } catch { setError("تعذر إرسال الرسالة."); }
-  }
-
-  async function selectMedia(selection: VastaMediaSelection) {
-    if (!userId || !groupId) return;
-    setBusy(true); setError("");
-    try {
-      const media = await uploadGroupMedia(groupId, userId, selection.file);
-      await addDoc(collection(db, "groups", groupId, "messages"), { kind: "media", senderId: userId, text: "", createdAt: Date.now(), mediaKind: media.kind, mediaUrl: media.mediaUrl, storagePath: media.storagePath, fileName: media.fileName, mimeType: media.mimeType, sizeBytes: media.sizeBytes });
-      await updateDoc(doc(db, "groups", groupId), { updatedAt: Date.now() });
-    } catch { setError("تعذر رفع الوسائط. تحقق من اتصال Firebase."); }
-    finally { setBusy(false); }
-  }
-
-  if (!groupId) return <main dir="rtl" style={{padding:24,fontFamily:"sans-serif"}}>معرّف المجموعة مفقود.</main>;
-
-  return <main dir="rtl" style={{minHeight:"100vh",background:"#071316",color:"#e7f3f1",fontFamily:"sans-serif",display:"flex",flexDirection:"column"}}>
-    <header style={{padding:"16px 20px",borderBottom:"1px solid #17353a",background:"#0d1d21"}}><strong style={{fontSize:20}}>👥 {name}</strong><div style={{color:"#88a39f",marginTop:4}}>{members} أعضاء</div></header>
-    <section style={{flex:1,padding:20,maxWidth:900,width:"100%",boxSizing:"border-box",margin:"0 auto"}}>
-      {messages.length === 0 && <div style={{color:"#88a39f",textAlign:"center",padding:40}}>ابدأ أول رسالة في المجموعة.</div>}
-      {messages.map((m) => <div key={m.id} style={{display:"flex",justifyContent:m.senderId===userId?"flex-start":"flex-end",margin:"8px 0"}}><div style={{background:m.senderId===userId?"#17353a":"#102226",padding:"10px 14px",borderRadius:16,maxWidth:"75%"}}>
-        {m.kind === "media" && m.mediaKind === "image" && m.mediaUrl ? <img src={m.mediaUrl} alt={m.fileName || "صورة"} style={{maxWidth:340,maxHeight:340,borderRadius:12,display:"block"}} /> : null}
-        {m.kind === "media" && m.mediaKind === "video" && m.mediaUrl ? <video src={m.mediaUrl} controls style={{maxWidth:340,maxHeight:340,borderRadius:12,display:"block"}} /> : null}
-        {m.kind === "media" && m.mediaKind === "file" && m.mediaUrl ? <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{color:"#18e6ae",fontWeight:800}}>📄 {m.fileName || "ملف PDF"}</a> : null}
-        {m.kind !== "media" && <div>{m.text}</div>}
-        <div style={{fontSize:10,color:"#6f8985",marginTop:6}}>{new Date(m.createdAt).toLocaleTimeString("ar",{hour:"2-digit",minute:"2-digit"})}</div>
-      </div></div>)}
-    </section>
-    {error && <div style={{padding:"8px 16px",color:"#ff7784",textAlign:"center"}}>{error}</div>}
-    <form onSubmit={(e)=>{e.preventDefault();void send();}} style={{padding:16,borderTop:"1px solid #17353a",background:"#0d1d21",display:"flex",gap:10,alignItems:"center"}}>
-      <button type="button" onClick={()=>setMediaOpen(true)} disabled={busy} style={{width:48,height:48,borderRadius:14,border:"1px solid #21474c",background:"#102226",color:"white",fontSize:20}}>📎</button>
-      <input value={text} onChange={(e)=>setText(e.target.value)} placeholder="اكتب رسالة للمجموعة..." style={{flex:1,padding:14,borderRadius:14,border:"1px solid #21474c",background:"#09171a",color:"white"}} />
-      <button type="submit" style={{padding:"0 20px",height:48,border:0,borderRadius:14,background:"#18e6ae",fontWeight:900}}>إرسال</button>
-    </form>
-    <VastaMediaPicker open={mediaOpen} onClose={()=>setMediaOpen(false)} onSelect={(selection)=>void selectMedia(selection)} />
-  </main>;
+  const groupId=useMemo(()=>new URLSearchParams(window.location.search).get("id")??"",[]); const [userId,setUserId]=useState(""); const [name,setName]=useState("المجموعة"); const [members,setMembers]=useState(0); const [messages,setMessages]=useState<Message[]>([]); const [text,setText]=useState(""); const [mediaOpen,setMediaOpen]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
+  useEffect(()=>onAuthStateChanged(auth,u=>setUserId(u?.uid??"")),[]);
+  useEffect(()=>{if(!groupId)return;let stop=()=>{};void getDoc(doc(db,"groups",groupId)).then(s=>{const d=s.data();if(d){setName((d.name as string)||"المجموعة");setMembers(Array.isArray(d.memberIds)?d.memberIds.length:0);}});stop=onSnapshot(query(collection(db,"groups",groupId,"messages"),orderBy("createdAt","asc"),limit(200)),s=>setMessages(s.docs.map(d=>({id:d.id,...(d.data() as Omit<Message,"id">)}))),()=>setError("تعذر تحديث رسائل المجموعة."));return()=>stop();},[groupId]);
+  async function send(){const value=text.trim();if(!value||!userId||!groupId)return;setText("");setError("");try{await addDoc(collection(db,"groups",groupId,"messages"),{kind:"text",senderId:userId,text:value.slice(0,10000),createdAt:Date.now()});await updateDoc(doc(db,"groups",groupId),{updatedAt:Date.now()});}catch{setError("تعذر إرسال الرسالة.");}}
+  async function selectMedia(selection:VastaMediaSelection){if(!userId||!groupId)return;setBusy(true);setError("");try{const media=await uploadGroupMedia(groupId,userId,selection.file);await addDoc(collection(db,"groups",groupId,"messages"),{kind:"media",senderId:userId,text:"",createdAt:Date.now(),mediaKind:media.kind,mediaUrl:media.mediaUrl,storagePath:media.storagePath,fileName:media.fileName,mimeType:media.mimeType,sizeBytes:media.sizeBytes});await updateDoc(doc(db,"groups",groupId),{updatedAt:Date.now()});}catch{setError("تعذر رفع الوسائط. تحقق من اتصال Firebase.");}finally{setBusy(false);}}
+  if(!groupId)return <main dir="rtl" style={{padding:24,fontFamily:"sans-serif"}}>معرّف المجموعة مفقود.</main>;
+  return <main dir="rtl" style={{minHeight:"100vh",background:"#071316",color:"#e7f3f1",fontFamily:"sans-serif",display:"flex",flexDirection:"column"}}><header style={{padding:"16px 20px",borderBottom:"1px solid #17353a",background:"#0d1d21",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><div><strong style={{fontSize:20}}>👥 {name}</strong><div style={{color:"#88a39f",marginTop:4}}>{members} أعضاء</div></div><a href={`/group-settings?id=${encodeURIComponent(groupId)}`} style={{padding:"9px 12px",borderRadius:10,border:"1px solid #21474c",color:"#18e6ae",textDecoration:"none"}}>⚙️ إدارة</a></header><section style={{flex:1,padding:20,maxWidth:900,width:"100%",boxSizing:"border-box",margin:"0 auto"}}>{messages.length===0&&<div style={{color:"#88a39f",textAlign:"center",padding:40}}>ابدأ أول رسالة في المجموعة.</div>}{messages.map(m=><div key={m.id} style={{display:"flex",justifyContent:m.senderId===userId?"flex-start":"flex-end",margin:"8px 0"}}><div style={{background:m.senderId===userId?"#17353a":"#102226",padding:"10px 14px",borderRadius:16,maxWidth:"75%"}}>{m.kind==="media"&&m.mediaKind==="image"&&m.mediaUrl?<img src={m.mediaUrl} alt={m.fileName||"صورة"} style={{maxWidth:340,maxHeight:340,borderRadius:12,display:"block"}}/>:null}{m.kind==="media"&&m.mediaKind==="video"&&m.mediaUrl?<video src={m.mediaUrl} controls style={{maxWidth:340,maxHeight:340,borderRadius:12,display:"block"}}/>:null}{m.kind==="media"&&m.mediaKind==="file"&&m.mediaUrl?<a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{color:"#18e6ae",fontWeight:800}}>📄 {m.fileName||"ملف PDF"}</a>:null}{m.kind!=="media"&&<div>{m.text}</div>}<div style={{fontSize:10,color:"#6f8985",marginTop:6}}>{new Date(m.createdAt).toLocaleTimeString("ar",{hour:"2-digit",minute:"2-digit"})}</div></div></div>)}</section>{error&&<div style={{padding:"8px 16px",color:"#ff7784",textAlign:"center"}}>{error}</div>}<form onSubmit={e=>{e.preventDefault();void send();}} style={{padding:16,borderTop:"1px solid #17353a",background:"#0d1d21",display:"flex",gap:10,alignItems:"center"}}><button type="button" onClick={()=>setMediaOpen(true)} disabled={busy} style={{width:48,height:48,borderRadius:14,border:"1px solid #21474c",background:"#102226",color:"white",fontSize:20}}>📎</button><input value={text} onChange={e=>setText(e.target.value)} placeholder="اكتب رسالة للمجموعة..." style={{flex:1,padding:14,borderRadius:14,border:"1px solid #21474c",background:"#09171a",color:"white"}}/><button type="submit" style={{padding:"0 20px",height:48,border:0,borderRadius:14,background:"#18e6ae",fontWeight:900}}>إرسال</button></form><VastaMediaPicker open={mediaOpen} onClose={()=>setMediaOpen(false)} onSelect={selection=>void selectMedia(selection)}/></main>;
 }

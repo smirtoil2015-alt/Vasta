@@ -2,22 +2,15 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function isSelf(uid) {
-      return signedIn() && request.auth.uid == uid;
-    }
-
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
     function isParticipant(conversationId) {
       return signedIn()
         && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
     match /users/{uid} {
-      allow read: if isSelf(uid);
-      allow create, update: if isSelf(uid);
+      allow read, create, update: if isSelf(uid);
       allow delete: if false;
     }
 
@@ -44,8 +37,19 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 10000;
-        allow update, delete: if isParticipant(conversationId)
-          && resource.data.senderId == request.auth.uid;
+        allow update, delete: if isParticipant(conversationId) && resource.data.senderId == request.auth.uid;
+
+        match /receipts/{uid} {
+          allow read: if isParticipant(conversationId);
+          allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
+          allow delete: if false;
+        }
+      }
+
+      match /typing/{uid} {
+        allow read: if isParticipant(conversationId);
+        allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
+        allow delete: if isParticipant(conversationId) && uid == request.auth.uid;
       }
     }
   }

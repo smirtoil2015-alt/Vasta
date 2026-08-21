@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Vasta",
   description: "Fast, simple and connected messaging.",
+  icons: {
+    icon: "/vasta-logo.svg",
+    shortcut: "/vasta-logo.svg",
+    apple: "/vasta-logo.svg",
+  },
 };
 
 export default function RootLayout({

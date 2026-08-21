@@ -37,11 +37,15 @@ export type VastaMessage = {
   text: string;
   senderId: string;
   createdAt: number;
-  kind?: "text" | "voice";
+  kind?: "text" | "voice" | "media";
   audioUrl?: string;
+  mediaUrl?: string;
   storagePath?: string;
   durationMs?: number;
   mimeType?: string;
+  mediaKind?: "image" | "video" | "file";
+  fileName?: string;
+  sizeBytes?: number;
 };
 
 export function normalizePhone(phone: string) {

@@ -16,16 +16,21 @@ import type { VastaProfile } from "@/lib/vasta-chat";
 type Mode = "login" | "register";
 
 async function saveEmailProfile(user: User) {
-  const ref = doc(db, "users", user.uid);
-  const profile: VastaProfile = {
-    uid: user.uid,
-    phoneNumber: user.phoneNumber || "",
-    displayName: user.displayName || "مستخدم Vasta",
-    photoURL: user.photoURL || "",
-    bio: "متاح على Vasta",
-    updatedAt: serverTimestamp(),
-  };
-  await setDoc(ref, profile, { merge: true });
+  try {
+    const ref = doc(db, "users", user.uid);
+    const profile: VastaProfile = {
+      uid: user.uid,
+      phoneNumber: user.phoneNumber || "",
+      displayName: user.displayName || "مستخدم Vasta",
+      photoURL: user.photoURL || "",
+      bio: "متاح على Vasta",
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(ref, profile, { merge: true });
+  } catch (error) {
+    // لا نمنع تسجيل الدخول إذا تعذر إنشاء ملف Firestore.
+    console.error("Vasta profile save failed:", error);
+  }
 }
 
 export default function VastaPinLogin() {
@@ -72,9 +77,11 @@ export default function VastaPinLogin() {
         const result = await signInWithEmailAndPassword(auth, normalizedEmail, password);
         signedIn = result.user;
       }
+      // حفظ الملف عملية إضافية ولا تمنع الدخول إذا فشلت.
       await saveEmailProfile(signedIn);
+      setUser(signedIn);
     } catch (err: any) {
-      console.error(err);
+      console.error("Vasta auth error:", err);
       const code = String(err?.code || "");
       if (code === "auth/email-already-in-use") {
         setError("هذا البريد مستخدم بالفعل. اختر تسجيل الدخول.");
@@ -84,8 +91,10 @@ export default function VastaPinLogin() {
         setError("فعّل تسجيل الدخول بالبريد وكلمة المرور من Firebase Authentication.");
       } else if (code === "auth/weak-password") {
         setError("كلمة المرور ضعيفة. استخدم 6 أحرف أو أرقام على الأقل.");
+      } else if (code === "auth/invalid-api-key" || code === "auth/api-key-not-valid.-please-pass-a-valid-api-key.") {
+        setError("إعداد Firebase غير صحيح في Vercel. تحقق من متغيرات NEXT_PUBLIC_FIREBASE.");
       } else {
-        setError("تعذر تسجيل الدخول الآن. حاول مرة أخرى.");
+        setError(`تعذر تسجيل الدخول الآن (${code || "خطأ غير معروف"}).`);
       }
     } finally {
       setBusy(false);
@@ -107,11 +116,8 @@ export default function VastaPinLogin() {
     } catch (err: any) {
       console.error(err);
       const code = String(err?.code || "");
-      if (code === "auth/user-not-found") {
-        setError("لا يوجد حساب بهذا البريد الإلكتروني.");
-      } else {
-        setError("تعذر إرسال رابط استعادة كلمة المرور. حاول مرة أخرى.");
-      }
+      if (code === "auth/user-not-found") setError("لا يوجد حساب بهذا البريد الإلكتروني.");
+      else setError("تعذر إرسال رابط استعادة كلمة المرور. حاول مرة أخرى.");
     } finally {
       setBusy(false);
     }
@@ -136,28 +142,22 @@ export default function VastaPinLogin() {
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="اسمك" autoComplete="name" required />
             </label>
           )}
-
           <label>
             <span>البريد الإلكتروني</span>
             <input dir="ltr" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" required />
           </label>
-
           <label>
             <span>كلمة المرور</span>
             <input dir="ltr" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete={mode === "register" ? "new-password" : "current-password"} required />
           </label>
-
           <button type="submit" className="vasta-pin-submit" disabled={busy}>
             {busy ? "جارٍ التحقق..." : mode === "login" ? "دخول إلى Vasta" : "إنشاء حساب Vasta"}
           </button>
         </form>
 
         {mode === "login" && (
-          <button type="button" className="vasta-pin-back" onClick={resetPassword} disabled={busy}>
-            نسيت كلمة المرور؟
-          </button>
+          <button type="button" className="vasta-pin-back" onClick={resetPassword} disabled={busy}>نسيت كلمة المرور؟</button>
         )}
-
         {error && <div className="vasta-pin-error">{error}</div>}
         {message && <div className="vasta-pin-note">{message}</div>}
         <p className="vasta-pin-note">لا نحتاج إلى رقم هاتف أو SMS لتسجيل الدخول إلى Vasta.</p>

@@ -37,6 +37,11 @@ export type VastaMessage = {
   text: string;
   senderId: string;
   createdAt: number;
+  kind?: "text" | "voice";
+  audioUrl?: string;
+  storagePath?: string;
+  durationMs?: number;
+  mimeType?: string;
 };
 
 export function normalizePhone(phone: string) {
@@ -82,7 +87,7 @@ export function watchMessages(conversationId: string, onChange: (items: VastaMes
 export function watchTyping(conversationId: string, onChange: (uid: string | null) => void, currentUid: string): Unsubscribe {
   return onSnapshot(collection(db, "conversations", conversationId, "typing"), (snapshot) => {
     const active = snapshot.docs
-      .map((item) => ({ uid: item.id, ...(item.data() as { active?: boolean; updatedAt?: { seconds?: number } }) }))
+      .map((item) => ({ uid: item.id, ...(item.data() as { active?: boolean }) }))
       .find((item) => item.uid !== currentUid && item.active);
     onChange(active?.uid ?? null);
   });
@@ -129,6 +134,28 @@ export async function sendTextMessage(conversationId: string, sender: VastaProfi
   const value = text.trim();
   if (!value) return;
   const now = Date.now();
-  await addDoc(collection(db, "conversations", conversationId, "messages"), { text: value, senderId: sender.uid, createdAt: now });
+  await addDoc(collection(db, "conversations", conversationId, "messages"), { kind: "text", text: value, senderId: sender.uid, createdAt: now });
   await setDoc(doc(db, "conversations", conversationId), { lastMessage: value, lastMessageAt: now }, { merge: true });
+}
+
+export async function sendVoiceMessage(
+  conversationId: string,
+  sender: VastaProfile,
+  audioUrl: string,
+  storagePath: string,
+  durationMs: number,
+  mimeType: string,
+) {
+  const now = Date.now();
+  await addDoc(collection(db, "conversations", conversationId, "messages"), {
+    kind: "voice",
+    text: "",
+    senderId: sender.uid,
+    createdAt: now,
+    audioUrl,
+    storagePath,
+    durationMs,
+    mimeType,
+  });
+  await setDoc(doc(db, "conversations", conversationId), { lastMessage: "🎤 رسالة صوتية", lastMessageAt: now }, { merge: true });
 }

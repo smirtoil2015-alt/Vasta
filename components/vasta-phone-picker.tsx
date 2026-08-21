@@ -1,0 +1,151 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type Country = { code: string; name: string; dial: string; flag: string };
+
+const COUNTRIES: Country[] = [
+  { code: "US", name: "United States", dial: "+1", flag: "🇺🇸" },
+  { code: "CA", name: "Canada", dial: "+1", flag: "🇨🇦" },
+  { code: "GB", name: "United Kingdom", dial: "+44", flag: "🇬🇧" },
+  { code: "TR", name: "Türkiye", dial: "+90", flag: "🇹🇷" },
+  { code: "SY", name: "Syria", dial: "+963", flag: "🇸🇾" },
+  { code: "SA", name: "Saudi Arabia", dial: "+966", flag: "🇸🇦" },
+  { code: "AE", name: "United Arab Emirates", dial: "+971", flag: "🇦🇪" },
+  { code: "QA", name: "Qatar", dial: "+974", flag: "🇶🇦" },
+  { code: "KW", name: "Kuwait", dial: "+965", flag: "🇰🇼" },
+  { code: "BH", name: "Bahrain", dial: "+973", flag: "🇧🇭" },
+  { code: "OM", name: "Oman", dial: "+968", flag: "🇴🇲" },
+  { code: "JO", name: "Jordan", dial: "+962", flag: "🇯🇴" },
+  { code: "LB", name: "Lebanon", dial: "+961", flag: "🇱🇧" },
+  { code: "IQ", name: "Iraq", dial: "+964", flag: "🇮🇶" },
+  { code: "EG", name: "Egypt", dial: "+20", flag: "🇪🇬" },
+  { code: "LY", name: "Libya", dial: "+218", flag: "🇱🇾" },
+  { code: "TN", name: "Tunisia", dial: "+216", flag: "🇹🇳" },
+  { code: "DZ", name: "Algeria", dial: "+213", flag: "🇩🇿" },
+  { code: "MA", name: "Morocco", dial: "+212", flag: "🇲🇦" },
+  { code: "SD", name: "Sudan", dial: "+249", flag: "🇸🇩" },
+  { code: "PS", name: "Palestine", dial: "+970", flag: "🇵🇸" },
+  { code: "IR", name: "Iran", dial: "+98", flag: "🇮🇷" },
+  { code: "DE", name: "Germany", dial: "+49", flag: "🇩🇪" },
+  { code: "FR", name: "France", dial: "+33", flag: "🇫🇷" },
+  { code: "IT", name: "Italy", dial: "+39", flag: "🇮🇹" },
+  { code: "ES", name: "Spain", dial: "+34", flag: "🇪🇸" },
+  { code: "NL", name: "Netherlands", dial: "+31", flag: "🇳🇱" },
+  { code: "BE", name: "Belgium", dial: "+32", flag: "🇧🇪" },
+  { code: "CH", name: "Switzerland", dial: "+41", flag: "🇨🇭" },
+  { code: "AT", name: "Austria", dial: "+43", flag: "🇦🇹" },
+  { code: "SE", name: "Sweden", dial: "+46", flag: "🇸🇪" },
+  { code: "NO", name: "Norway", dial: "+47", flag: "🇳🇴" },
+  { code: "DK", name: "Denmark", dial: "+45", flag: "🇩🇰" },
+  { code: "FI", name: "Finland", dial: "+358", flag: "🇫🇮" },
+  { code: "PL", name: "Poland", dial: "+48", flag: "🇵🇱" },
+  { code: "GR", name: "Greece", dial: "+30", flag: "🇬🇷" },
+  { code: "RO", name: "Romania", dial: "+40", flag: "🇷🇴" },
+  { code: "BG", name: "Bulgaria", dial: "+359", flag: "🇧🇬" },
+  { code: "RS", name: "Serbia", dial: "+381", flag: "🇷🇸" },
+  { code: "HR", name: "Croatia", dial: "+385", flag: "🇭🇷" },
+  { code: "HU", name: "Hungary", dial: "+36", flag: "🇭🇺" },
+  { code: "UA", name: "Ukraine", dial: "+380", flag: "🇺🇦" },
+  { code: "RU", name: "Russia", dial: "+7", flag: "🇷🇺" },
+  { code: "GE", name: "Georgia", dial: "+995", flag: "🇬🇪" },
+  { code: "AM", name: "Armenia", dial: "+374", flag: "🇦🇲" },
+  { code: "AZ", name: "Azerbaijan", dial: "+994", flag: "🇦🇿" },
+  { code: "BR", name: "Brazil", dial: "+55", flag: "🇧🇷" },
+  { code: "MX", name: "Mexico", dial: "+52", flag: "🇲🇽" },
+  { code: "AR", name: "Argentina", dial: "+54", flag: "🇦🇷" },
+  { code: "CL", name: "Chile", dial: "+56", flag: "🇨🇱" },
+  { code: "CO", name: "Colombia", dial: "+57", flag: "🇨🇴" },
+  { code: "PE", name: "Peru", dial: "+51", flag: "🇵🇪" },
+  { code: "IN", name: "India", dial: "+91", flag: "🇮🇳" },
+  { code: "PK", name: "Pakistan", dial: "+92", flag: "🇵🇰" },
+  { code: "BD", name: "Bangladesh", dial: "+880", flag: "🇧🇩" },
+  { code: "LK", name: "Sri Lanka", dial: "+94", flag: "🇱🇰" },
+  { code: "NP", name: "Nepal", dial: "+977", flag: "🇳🇵" },
+  { code: "CN", name: "China", dial: "+86", flag: "🇨🇳" },
+  { code: "JP", name: "Japan", dial: "+81", flag: "🇯🇵" },
+  { code: "KR", name: "South Korea", dial: "+82", flag: "🇰🇷" },
+  { code: "TH", name: "Thailand", dial: "+66", flag: "🇹🇭" },
+  { code: "VN", name: "Vietnam", dial: "+84", flag: "🇻🇳" },
+  { code: "ID", name: "Indonesia", dial: "+62", flag: "🇮🇩" },
+  { code: "MY", name: "Malaysia", dial: "+60", flag: "🇲🇾" },
+  { code: "SG", name: "Singapore", dial: "+65", flag: "🇸🇬" },
+  { code: "PH", name: "Philippines", dial: "+63", flag: "🇵🇭" },
+  { code: "AU", name: "Australia", dial: "+61", flag: "🇦🇺" },
+  { code: "NZ", name: "New Zealand", dial: "+64", flag: "🇳🇿" },
+  { code: "ZA", name: "South Africa", dial: "+27", flag: "🇿🇦" },
+  { code: "NG", name: "Nigeria", dial: "+234", flag: "🇳🇬" },
+  { code: "GH", name: "Ghana", dial: "+233", flag: "🇬🇭" },
+  { code: "KE", name: "Kenya", dial: "+254", flag: "🇰🇪" },
+  { code: "ET", name: "Ethiopia", dial: "+251", flag: "🇪🇹" },
+];
+
+function findPhoneInput() {
+  return document.querySelector<HTMLInputElement>('input[type="tel"]');
+}
+
+export default function VastaPhonePicker() {
+  const selected = useRef(COUNTRIES.find((c) => c.code === "TR") ?? COUNTRIES[0]);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    const enhance = () => {
+      if (mounted.current) return true;
+      const input = findPhoneInput();
+      if (!input || !input.isConnected) return false;
+      const label = input.closest("label");
+      if (!label || label.querySelector(".vasta-country-picker")) return false;
+
+      label.classList.add("vasta-phone-enhanced");
+      const wrapper = document.createElement("div");
+      wrapper.className = "vasta-phone-row";
+
+      const select = document.createElement("select");
+      select.className = "vasta-country-picker";
+      select.setAttribute("aria-label", "الدولة ورمز الاتصال");
+      for (const country of COUNTRIES) {
+        const option = document.createElement("option");
+        option.value = country.code;
+        option.textContent = `${country.flag}  ${country.name}  ${country.dial}`;
+        if (country.code === selected.current.code) option.selected = true;
+        select.appendChild(option);
+      }
+
+      const originalValue = input.value.replace(/\D/g, "");
+      input.value = selected.current.dial + originalValue;
+      input.setAttribute("placeholder", "5XX XXX XX XX");
+      input.style.paddingLeft = "12px";
+      input.style.paddingRight = "12px";
+
+      const syncReactValue = (value: string) => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+        setter?.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+
+      select.addEventListener("change", () => {
+        const next = COUNTRIES.find((c) => c.code === select.value) ?? COUNTRIES[0];
+        const current = input.value.replace(/\D/g, "");
+        const previousDial = selected.current.dial.replace(/\D/g, "");
+        const local = current.startsWith(previousDial) ? current.slice(previousDial.length) : current.replace(/^\d{1,4}/, "");
+        selected.current = next;
+        syncReactValue(next.dial + local);
+      });
+
+      wrapper.appendChild(select);
+      input.parentNode?.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+      mounted.current = true;
+      return true;
+    };
+
+    if (enhance()) return;
+    const observer = new MutationObserver(() => {
+      if (enhance()) observer.disconnect();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}

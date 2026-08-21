@@ -31,8 +31,7 @@ declare global {
 
 const features = [
   { icon: "⚡", title: "Vasta Pulse", text: "رسائل لحظية وتجربة محادثة سريعة." },
-  { icon: "🧠", title: "Vasta", text: "المساعد الذكي داخل التطبيق نفسه." },
-  { icon: "✨", title: "Vasta Spaces", text: "مجموعات ومساحات متقدمة." },
+  { icon: "👥", title: "Vasta Spaces", text: "مجموعات ومساحات متقدمة." },
   { icon: "🔒", title: "Vasta Privacy", text: "أمان وصلاحيات على مستوى الخادم." },
 ];
 
@@ -222,7 +221,7 @@ export default function Home() {
             <form className="auth-form" onSubmit={verifyCode}><label><span>رمز التحقق</span><input dir="ltr" className="otp-input" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="••••••" required /></label><button className="primary-button" disabled={busy}>{busy ? "جارٍ التحقق..." : "دخول إلى Vasta"}</button><button type="button" className="secondary-button" onClick={resetPhoneFlow}>تغيير رقم الهاتف</button></form>
           )}
           {error && <div className="error-box">{error}</div>}
-          <div className="auth-benefits"><span>⚡ لحظي</span><span>🧠 Vasta ذكي</span><span>🔒 خاص</span></div>
+          <div className="auth-benefits"><span>⚡ لحظي</span><span>👥 جماعي</span><span>🔒 خاص</span></div>
           <div className="feature-strip">{features.map((feature) => <div key={feature.title} className="mini-feature"><span className="mini-icon">{feature.icon}</span><div><strong>{feature.title}</strong><span>{feature.text}</span></div></div>)}</div>
         </section>
       </main>
@@ -236,7 +235,6 @@ export default function Home() {
           <header className="sidebar-head"><div><div className="brand">Vasta</div><div className="brand-subtitle">مراسلة الجيل التالي</div></div><button className="icon-button">⋮</button></header>
           <div className="contact-search"><div className="search-wrap"><span>⌕</span><input dir="ltr" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void searchContact()} placeholder="+90 رقم الهاتف" /></div><button className="search-button" onClick={() => void searchContact()}>{searching ? "بحث..." : "العثور على مستخدم"}</button></div>
           {contact && <button className="contact-result" onClick={() => void startConversation()}><div className="avatar">{initials(contact.displayName)}</div><div><strong>{contact.displayName}</strong><span dir="ltr">{contact.phoneNumber}</span></div><b>＋</b></button>}
-          <div className="feature-card"><div className="feature-icon">✦</div><div><strong>Vasta</strong><span>المساعد الذكي داخل المحادثة.</span></div><span className="soon-badge">SOON</span></div>
           <div className="chat-list">{conversations.length === 0 ? <div className="empty-chats"><div className="welcome-logo">V</div><strong>ابدأ أول محادثة</strong><span>ابحث عن رقم هاتف لفتح محادثة.</span></div> : conversations.map((item) => <button key={item.id} className={`chat-item ${activeConversation?.id === item.id ? "active" : ""}`} onClick={() => setActiveConversation(item)}><div className="avatar">{initials(conversationName(item))}</div><div className="chat-copy"><div className="chat-title-row"><strong>{conversationName(item)}</strong><time>{new Date(item.lastMessageAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}</time></div><div className="chat-message">{item.lastMessage}</div></div></button>)}</div>
           <footer className="sidebar-footer"><div className="profile-mini"><div className="avatar small">{initials(profile?.displayName ?? "V")}</div><div><strong>{profile?.displayName ?? "حساب Vasta"}</strong><span dir="ltr">{user.phoneNumber}</span></div></div><button className="logout-button" onClick={() => void signOut(auth)}>خروج</button></footer>
         </aside>

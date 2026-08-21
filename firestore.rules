@@ -8,14 +8,10 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
     function isBlocked(peerUid) {
-      return signedIn() && (
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)/blocks/$(peerUid)) ||
-        exists(/databases/$(database)/documents/users/$(peerUid)/blocks/$(request.auth.uid))
-      );
+      return signedIn() && (exists(/databases/$(database)/documents/users/$(request.auth.uid)/blocks/$(peerUid)) || exists(/databases/$(database)/documents/users/$(peerUid)/blocks/$(request.auth.uid)));
     }
     function isBlockedInConversation(conversationId) {
-      return isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[0]) ||
-        isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[1]);
+      return isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[0]) || isBlocked(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants[1]);
     }
     function isGroupMember(groupId) {
       return signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
@@ -24,13 +20,8 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, create, update: if isSelf(uid);
       allow delete: if false;
-      match /settings/{settingId} {
-        allow read, create, update: if isSelf(uid);
-        allow delete: if false;
-      }
-      match /devices/{deviceId} {
-        allow read, create, update, delete: if isSelf(uid);
-      }
+      match /settings/{settingId} { allow read, create, update: if isSelf(uid); allow delete: if false; }
+      match /devices/{deviceId} { allow read, create, update, delete: if isSelf(uid); }
       match /blocks/{blockedUid} {
         allow read: if isSelf(uid);
         allow create: if isSelf(uid) && blockedUid != uid && request.resource.data.blockedAt is int;
@@ -46,6 +37,13 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
+    match /usernameIndex/{username} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
     match /presence/{uid} {
       allow read: if isSelf(uid) || (signedIn() && get(/databases/$(database)/documents/users/$(uid)).data.showLastSeen == true);
       allow create, update: if isSelf(uid);
@@ -54,28 +52,13 @@ service cloud.firestore {
 
     match /callHistory/{historyId} {
       allow read: if signedIn() && request.auth.uid in resource.data.participants;
-      allow create: if signedIn()
-        && request.resource.data.participants.size() == 2
-        && request.auth.uid in request.resource.data.participants
-        && request.resource.data.initiatorId == request.auth.uid
-        && request.resource.data.peerId in request.resource.data.participants
-        && !isBlocked(request.resource.data.peerId)
-        && request.resource.data.kind in ['audio', 'video']
-        && request.resource.data.status in ['ringing', 'answered', 'missed', 'ended'];
+      allow create: if signedIn() && request.resource.data.participants.size() == 2 && request.auth.uid in request.resource.data.participants && request.resource.data.initiatorId == request.auth.uid && request.resource.data.peerId in request.resource.data.participants && !isBlocked(request.resource.data.peerId) && request.resource.data.kind in ['audio', 'video'] && request.resource.data.status in ['ringing', 'answered', 'missed', 'ended'];
       allow update: if signedIn() && request.auth.uid in resource.data.participants;
       allow delete: if false;
     }
 
     match /reports/{reportId} {
-      allow create: if signedIn()
-        && request.resource.data.reporterId == request.auth.uid
-        && request.resource.data.reportedUserId is string
-        && request.resource.data.reportedUserId != request.auth.uid
-        && request.resource.data.targetType in ['user', 'message']
-        && request.resource.data.reason in ['spam', 'harassment', 'scam', 'inappropriate', 'other']
-        && request.resource.data.details is string
-        && request.resource.data.details.size() <= 1000
-        && request.resource.data.status == 'open';
+      allow create: if signedIn() && request.resource.data.reporterId == request.auth.uid && request.resource.data.reportedUserId is string && request.resource.data.reportedUserId != request.auth.uid && request.resource.data.targetType in ['user', 'message'] && request.resource.data.reason in ['spam', 'harassment', 'scam', 'inappropriate', 'other'] && request.resource.data.details is string && request.resource.data.details.size() <= 1000 && request.resource.data.status == 'open';
       allow read, update, delete: if false;
     }
 
@@ -86,54 +69,20 @@ service cloud.firestore {
       allow delete: if false;
       match /messages/{messageId} {
         allow read: if isParticipant(conversationId);
-        allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid && !isBlockedInConversation(conversationId) && (
-          (request.resource.data.kind == 'text' && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 10000) ||
-          (request.resource.data.kind == 'voice' && request.resource.data.text == '' && request.resource.data.audioUrl is string && request.resource.data.storagePath is string && request.resource.data.durationMs is int && request.resource.data.durationMs > 0 && request.resource.data.durationMs <= 300000 && request.resource.data.mimeType is string && request.resource.data.mimeType.matches('audio/.*')) ||
-          (request.resource.data.kind == 'media' && request.resource.data.text is string && request.resource.data.text.size() <= 2000 && request.resource.data.mediaKind in ['image', 'video', 'file'] && request.resource.data.mediaUrl is string && request.resource.data.storagePath is string && request.resource.data.fileName is string && request.resource.data.mimeType is string && request.resource.data.sizeBytes is int && request.resource.data.sizeBytes > 0 && request.resource.data.sizeBytes <= 25 * 1024 * 1024)
-        );
-        allow update: if isParticipant(conversationId) && (
-          (resource.data.senderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','edited','editedAt','deleted','deletedAt'])) ||
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) && request.resource.data.pinned is bool)
-        );
+        allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid && !isBlockedInConversation(conversationId) && ((request.resource.data.kind == 'text' && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 10000) || (request.resource.data.kind == 'voice' && request.resource.data.text == '' && request.resource.data.audioUrl is string && request.resource.data.storagePath is string && request.resource.data.durationMs is int && request.resource.data.durationMs > 0 && request.resource.data.durationMs <= 300000 && request.resource.data.mimeType is string && request.resource.data.mimeType.matches('audio/.*')) || (request.resource.data.kind == 'media' && request.resource.data.text is string && request.resource.data.text.size() <= 2000 && request.resource.data.mediaKind in ['image', 'video', 'file'] && request.resource.data.mediaUrl is string && request.resource.data.storagePath is string && request.resource.data.fileName is string && request.resource.data.mimeType is string && request.resource.data.sizeBytes is int && request.resource.data.sizeBytes > 0 && request.resource.data.sizeBytes <= 25 * 1024 * 1024));
+        allow update: if isParticipant(conversationId) && ((resource.data.senderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text','edited','editedAt','deleted','deletedAt'])) || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned']) && request.resource.data.pinned is bool));
         allow delete: if false;
-        match /receipts/{uid} {
-          allow read: if isParticipant(conversationId);
-          allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
-          allow delete: if false;
-        }
-        match /reactions/{uid} {
-          allow read: if isParticipant(conversationId);
-          allow create, update: if isParticipant(conversationId) && uid == request.auth.uid && request.resource.data.emoji is string && request.resource.data.emoji.size() > 0 && request.resource.data.emoji.size() <= 16;
-          allow delete: if isParticipant(conversationId) && uid == request.auth.uid;
-        }
+        match /receipts/{uid} { allow read: if isParticipant(conversationId); allow create, update: if isParticipant(conversationId) && uid == request.auth.uid; allow delete: if false; }
+        match /reactions/{uid} { allow read: if isParticipant(conversationId); allow create, update: if isParticipant(conversationId) && uid == request.auth.uid && request.resource.data.emoji is string && request.resource.data.emoji.size() > 0 && request.resource.data.emoji.size() <= 16; allow delete: if isParticipant(conversationId) && uid == request.auth.uid; }
       }
-      match /typing/{uid} {
-        allow read: if isParticipant(conversationId);
-        allow create, update: if isParticipant(conversationId) && uid == request.auth.uid;
-        allow delete: if isParticipant(conversationId) && uid == request.auth.uid;
-      }
+      match /typing/{uid} { allow read: if isParticipant(conversationId); allow create, update: if isParticipant(conversationId) && uid == request.auth.uid; allow delete: if isParticipant(conversationId) && uid == request.auth.uid; }
       match /calls/{callId} {
         allow read: if isParticipant(conversationId);
-        allow create: if isParticipant(conversationId)
-          && request.resource.data.callerId == request.auth.uid
-          && request.resource.data.calleeId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
-          && request.resource.data.callerId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
-          && request.resource.data.callerId != request.resource.data.calleeId
-          && !isBlocked(request.resource.data.calleeId)
-          && request.resource.data.kind in ['audio', 'video']
-          && request.resource.data.status == 'ringing';
-        allow update: if isParticipant(conversationId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','updatedAt'])
-          && request.resource.data.status in ['ringing', 'active', 'ended'];
+        allow create: if isParticipant(conversationId) && request.resource.data.callerId == request.auth.uid && request.resource.data.calleeId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants && request.resource.data.callerId in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants && request.resource.data.callerId != request.resource.data.calleeId && !isBlocked(request.resource.data.calleeId) && request.resource.data.kind in ['audio', 'video'] && request.resource.data.status == 'ringing';
+        allow update: if isParticipant(conversationId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','updatedAt']) && request.resource.data.status in ['ringing', 'active', 'ended'];
         allow delete: if false;
-        match /callerCandidates/{candidateId} {
-          allow read, create: if isParticipant(conversationId);
-          allow update, delete: if false;
-        }
-        match /calleeCandidates/{candidateId} {
-          allow read, create: if isParticipant(conversationId);
-          allow update, delete: if false;
-        }
+        match /callerCandidates/{candidateId} { allow read, create: if isParticipant(conversationId); allow update, delete: if false; }
+        match /calleeCandidates/{candidateId} { allow read, create: if isParticipant(conversationId); allow update, delete: if false; }
       }
     }
 
@@ -142,11 +91,7 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid && request.auth.uid in request.resource.data.memberIds && request.resource.data.memberIds.size() >= 2 && request.resource.data.memberIds.size() <= 100;
       allow update: if isGroupMember(groupId) && resource.data.ownerId == request.auth.uid;
       allow delete: if false;
-      match /messages/{messageId} {
-        allow read: if isGroupMember(groupId);
-        allow create: if isGroupMember(groupId) && request.resource.data.senderId == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 10000;
-        allow update, delete: if isGroupMember(groupId) && resource.data.senderId == request.auth.uid;
-      }
+      match /messages/{messageId} { allow read: if isGroupMember(groupId); allow create: if isGroupMember(groupId) && request.resource.data.senderId == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 10000; allow update, delete: if isGroupMember(groupId) && resource.data.senderId == request.auth.uid; }
     }
   }
 }
